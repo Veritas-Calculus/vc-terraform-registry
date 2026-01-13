@@ -1,0 +1,44 @@
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+server
+
+# Test binary
+*.test
+
+# Output
+*.out
+
+# Go
+vendor/
+go.sum
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Data
+*.db
+registry.db
+/data/
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+
+# Certificates (sensitive)
+certs/
+*.srl
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/

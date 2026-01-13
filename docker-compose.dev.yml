@@ -1,0 +1,48 @@
+# Development docker-compose for faster iteration
+services:
+  backend:
+    image: golang:1.24-alpine
+    container_name: vc-registry-backend-dev
+    working_dir: /app
+    command: sh -c "apk add --no-cache gcc musl-dev sqlite-dev && go run cmd/server/main.go"
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - SERVER_HOST=0.0.0.0
+      - DATABASE_URL=sqlite:///data/registry.db
+      - STORAGE_PATH=/data/registry
+      - AUTH_ENABLED=false
+      - AUTH_SECRETKEY=dev-secret-key
+      - LOG_LEVEL=debug
+    volumes:
+      - ./backend:/app
+      - registry-data:/data
+      - go-modules:/go/pkg/mod
+    networks:
+      - registry-network
+
+  frontend:
+    image: node:20-alpine
+    container_name: vc-registry-frontend-dev
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8080
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - registry-network
+
+volumes:
+  registry-data:
+  go-modules:
+
+networks:
+  registry-network:
+    driver: bridge
