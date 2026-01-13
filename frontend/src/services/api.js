@@ -125,7 +125,7 @@ export function mirrorProviderWithProgress(namespace, name, { version, os = 'all
       }
     };
 
-    eventSource.onerror = (error) => {
+    eventSource.onerror = () => {
       eventSource.close();
       reject(new Error('Connection lost'));
     };

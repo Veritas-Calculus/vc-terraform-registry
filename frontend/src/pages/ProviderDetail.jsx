@@ -22,7 +22,7 @@ function ProviderDetail() {
       try {
         const settings = await fetchSettings();
         setRegistryUrl(settings.registry_url || window.location.host);
-      } catch (e) {
+      } catch {
         setRegistryUrl(window.location.host);
       }
       
@@ -30,7 +30,7 @@ function ProviderDetail() {
       try {
         const versionsData = await fetchProviderVersions(namespace, name);
         setVersions(versionsData.versions || []);
-      } catch (e) {
+      } catch {
         setVersions([]);
       }
       

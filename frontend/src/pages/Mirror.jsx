@@ -44,7 +44,7 @@ export default function Mirror() {
         setVersionsLoading(true);
         const data = await fetchUpstreamVersions(mirrorForm.namespace, mirrorForm.name);
         setUpstreamVersions(data);
-      } catch (err) {
+      } catch {
         setUpstreamVersions(null);
       } finally {
         setVersionsLoading(false);
