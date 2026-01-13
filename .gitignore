@@ -13,7 +13,6 @@ server
 
 # Go
 vendor/
-go.sum
 
 # IDEs
 .idea/
