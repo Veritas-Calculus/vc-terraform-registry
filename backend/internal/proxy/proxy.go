@@ -480,6 +480,7 @@ func (p *ProxyService) SaveUploadedProvider(namespace, name, version, osType, ar
 	filePath := filepath.Join(dirPath, safeFilename)
 
 	// Create file
+	// #nosec G304 -- filePath is constructed from validated components via buildSafeProviderPath and sanitizeFilename
 	outFile, err := os.Create(filePath)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create file: %w", err)

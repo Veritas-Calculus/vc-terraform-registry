@@ -1226,6 +1226,7 @@ func (h *MirrorHandler) extractZipFile(zipFile *zip.File, namespace, name, versi
 	}
 
 	filePath := filepath.Join(dirPath, safeFilename)
+	// #nosec G304 -- filePath is constructed from validated components via BuildSafeProviderPath and SanitizeFilename
 	outFile, err := os.Create(filePath)
 	if err != nil {
 		return "", err
