@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,12 +15,35 @@ import (
 	"gorm.io/gorm"
 )
 
-// sanitizeLogInput removes potentially dangerous characters from user input for safe logging.
-// This prevents log injection attacks.
-var logSanitizer = regexp.MustCompile(`[\r\n\t]`)
+// logSanitizer removes control characters that could be used for log injection attacks.
+// This includes newlines, carriage returns, tabs, and other control characters.
+var logSanitizer = regexp.MustCompile(`[\x00-\x1f\x7f]`)
 
+// sanitizeForLog removes potentially dangerous characters from user input for safe logging.
+// This prevents log injection attacks by removing all control characters.
 func sanitizeForLog(s string) string {
-	return logSanitizer.ReplaceAllString(s, "_")
+	// First, remove all control characters
+	safe := logSanitizer.ReplaceAllString(s, "")
+	// Limit length to prevent log flooding
+	if len(safe) > 100 {
+		safe = safe[:100] + "..."
+	}
+	return safe
+}
+
+// safeLogf is a helper that sanitizes all string arguments before logging.
+// This provides defense-in-depth against log injection.
+func safeLogf(format string, args ...interface{}) {
+	sanitizedArgs := make([]interface{}, len(args))
+	for i, arg := range args {
+		if s, ok := arg.(string); ok {
+			// Quote strings to make any remaining special characters visible
+			sanitizedArgs[i] = strconv.Quote(sanitizeForLog(s))
+		} else {
+			sanitizedArgs[i] = arg
+		}
+	}
+	log.Printf(format, sanitizedArgs...)
 }
 
 // ProviderMirrorHandler handles Terraform Provider Mirror Protocol requests.
@@ -242,13 +266,9 @@ func (h *ProviderMirrorHandler) buildLocalArchives(platforms []models.ProviderPl
 
 // asyncCacheProvider downloads and caches a provider version in the background.
 func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version string, platforms []proxy.Platform) {
-	// Sanitize inputs for logging to prevent log injection
-	safeNS := sanitizeForLog(namespace)
-	safeName := sanitizeForLog(name)
-	safeVer := sanitizeForLog(version)
-
-	log.Printf("[AsyncCache] Starting background cache for %s/%s v%s (%d platforms)",
-		safeNS, safeName, safeVer, len(platforms))
+	// Use safeLogf for all user-controlled inputs to prevent log injection
+	safeLogf("[AsyncCache] Starting background cache for %s/%s v%s (%d platforms)",
+		namespace, name, version, len(platforms))
 
 	// Refresh proxy settings
 	h.refreshProxySettings()
@@ -257,7 +277,7 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 	var existingProvider models.Provider
 	if err := h.db.Where("namespace = ? AND name = ? AND version = ?", namespace, name, version).
 		First(&existingProvider).Error; err == nil {
-		log.Printf("[AsyncCache] Provider %s/%s v%s already cached, skipping", safeNS, safeName, safeVer)
+		safeLogf("[AsyncCache] Provider %s/%s v%s already cached, skipping", namespace, name, version)
 		return
 	}
 
@@ -280,14 +300,10 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 
 	successCount := 0
 	for _, p := range platforms {
-		// Sanitize platform info for logging
-		safeOS := sanitizeForLog(p.OS)
-		safeArch := sanitizeForLog(p.Arch)
-
 		// Download and store each platform binary
 		downloadInfo, err := h.proxyService.GetProviderDownloadInfo(namespace, name, version, p.OS, p.Arch)
 		if err != nil {
-			log.Printf("[AsyncCache] Failed to get download info for %s/%s: %v", safeOS, safeArch, err)
+			safeLogf("[AsyncCache] Failed to get download info for %s/%s: %v", p.OS, p.Arch, err)
 			continue
 		}
 
@@ -295,7 +311,7 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 			namespace, name, version, p.OS, p.Arch, downloadInfo.DownloadURL,
 		)
 		if err != nil {
-			log.Printf("[AsyncCache] Failed to download %s/%s: %v", safeOS, safeArch, err)
+			safeLogf("[AsyncCache] Failed to download %s/%s: %v", p.OS, p.Arch, err)
 			continue
 		}
 
@@ -315,9 +331,9 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 		}
 
 		successCount++
-		log.Printf("[AsyncCache] Cached %s/%s v%s %s_%s", safeNS, safeName, safeVer, safeOS, safeArch)
+		safeLogf("[AsyncCache] Cached %s/%s v%s %s_%s", namespace, name, version, p.OS, p.Arch)
 	}
 
-	log.Printf("[AsyncCache] Completed caching %s/%s v%s: %d/%d platforms successful",
-		safeNS, safeName, safeVer, successCount, len(platforms))
+	safeLogf("[AsyncCache] Completed caching %s/%s v%s: %d/%d platforms successful",
+		namespace, name, version, successCount, len(platforms))
 }
