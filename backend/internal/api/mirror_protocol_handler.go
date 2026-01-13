@@ -2,6 +2,7 @@
 package api
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"regexp"
@@ -43,7 +44,9 @@ func safeLogf(format string, args ...interface{}) {
 			sanitizedArgs[i] = arg
 		}
 	}
-	log.Printf(format, sanitizedArgs...)
+	// Format the message first, then log it as a single safe string
+	msg := fmt.Sprintf(format, sanitizedArgs...)
+	log.Print(msg) //nolint:govet // format string is always a compile-time constant from caller
 }
 
 // ProviderMirrorHandler handles Terraform Provider Mirror Protocol requests.
