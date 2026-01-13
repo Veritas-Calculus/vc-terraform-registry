@@ -20,15 +20,29 @@ import (
 // This includes newlines, carriage returns, tabs, and other control characters.
 var logSanitizer = regexp.MustCompile(`[\x00-\x1f\x7f]`)
 
+// logSafeChars matches any character that is NOT in a conservative "safe for logs" set.
+// Allowed characters are alphanumerics, space, and a limited set of punctuation.
+// Everything else is replaced with '?' to avoid confusing or forging log structure.
+var logSafeChars = regexp.MustCompile(`[^a-zA-Z0-9 .,_:@/\-]`)
+
 // sanitizeForLog removes potentially dangerous characters from user input for safe logging.
-// This prevents log injection attacks by removing all control characters.
+// This prevents log injection attacks by removing all control characters and restricting
+// the remaining characters to a conservative safe set.
 func sanitizeForLog(s string) string {
-	// First, remove all control characters
+	// First, remove all control characters (including newlines, tabs, etc.).
 	safe := logSanitizer.ReplaceAllString(s, "")
-	// Limit length to prevent log flooding
+
+	// Replace any character outside the allowed safe set with '?'.
+	safe = logSafeChars.ReplaceAllString(safe, "?")
+
+	// Trim leading and trailing spaces to avoid confusing log formatting.
+	safe = strings.TrimSpace(safe)
+
+	// Limit length to prevent log flooding.
 	if len(safe) > 100 {
 		safe = safe[:100] + "..."
 	}
+
 	return safe
 }
 
