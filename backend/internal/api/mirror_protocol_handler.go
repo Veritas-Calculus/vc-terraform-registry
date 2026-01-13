@@ -32,19 +32,30 @@ func sanitizeForLog(s string) string {
 	return safe
 }
 
-// safeLogf is a helper that sanitizes all string arguments before logging.
+// safeLogf is a helper that sanitizes all arguments before logging.
 // This provides defense-in-depth against log injection.
 func safeLogf(format string, args ...interface{}) {
 	sanitizedArgs := make([]interface{}, len(args))
 	for i, arg := range args {
-		if s, ok := arg.(string); ok {
-			// Quote strings to make any remaining special characters visible
-			sanitizedArgs[i] = strconv.Quote(sanitizeForLog(s))
-		} else {
-			sanitizedArgs[i] = arg
+		if arg == nil {
+			sanitizedArgs[i] = nil
+			continue
 		}
+
+		// Obtain a string representation of the argument.
+		var s string
+		if str, ok := arg.(string); ok {
+			s = str
+		} else {
+			s = fmt.Sprint(arg)
+		}
+
+		// Sanitize and quote to make any remaining special characters visible.
+		safe := sanitizeForLog(s)
+		sanitizedArgs[i] = strconv.Quote(safe)
 	}
-	// Format the message first, then log it as a single safe string
+
+	// Format the message first, then log it as a single safe string.
 	msg := fmt.Sprintf(format, sanitizedArgs...)
 	log.Print(msg) //nolint:govet // format string is always a compile-time constant from caller
 }
