@@ -526,7 +526,7 @@ docker-compose logs
 
 - 项目主页: [https://github.com/Veritas-Calculus/vc-terraform-registry](https://github.com/Veritas-Calculus/vc-terraform-registry)
 - 问题反馈: [https://github.com/Veritas-Calculus/vc-terraform-registry/issues](https://github.com/Veritas-Calculus/vc-terraform-registry/issues)
-- 文档: [https://docs.example.com](https://docs.example.com)
+
 
 ## 致谢
 
