@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -22,6 +23,45 @@ import (
 
 // UpstreamRegistry is the default Terraform registry URL.
 const UpstreamRegistry = "https://registry.terraform.io"
+
+// pathComponentRegex validates path components to prevent path traversal attacks.
+// Only allows alphanumeric characters, hyphens, underscores, and dots.
+var pathComponentRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
+
+// validatePathComponent checks if a path component is safe to use in file paths.
+// Returns an error if the component contains path traversal characters or is invalid.
+func validatePathComponent(component, name string) error {
+	if component == "" {
+		return fmt.Errorf("%s cannot be empty", name)
+	}
+	if strings.Contains(component, "..") || strings.Contains(component, "/") || strings.Contains(component, "\\") {
+		return fmt.Errorf("%s contains invalid characters", name)
+	}
+	if !pathComponentRegex.MatchString(component) {
+		return fmt.Errorf("%s contains invalid characters", name)
+	}
+	return nil
+}
+
+// validateProviderPath validates all path components for a provider.
+func validateProviderPath(namespace, name, version, osType, arch string) error {
+	if err := validatePathComponent(namespace, "namespace"); err != nil {
+		return err
+	}
+	if err := validatePathComponent(name, "name"); err != nil {
+		return err
+	}
+	if err := validatePathComponent(version, "version"); err != nil {
+		return err
+	}
+	if err := validatePathComponent(osType, "os"); err != nil {
+		return err
+	}
+	if err := validatePathComponent(arch, "arch"); err != nil {
+		return err
+	}
+	return nil
+}
 
 // ProxyService handles provider mirroring operations.
 type ProxyService struct {
@@ -209,6 +249,11 @@ func (p *ProxyService) GetProviderDownloadInfo(namespace, name, version, osType,
 
 // DownloadAndCacheProvider downloads a provider from upstream and caches it locally.
 func (p *ProxyService) DownloadAndCacheProvider(namespace, name, version, osType, arch string) (string, string, error) {
+	// Validate path components to prevent path traversal
+	if err := validateProviderPath(namespace, name, version, osType, arch); err != nil {
+		return "", "", err
+	}
+
 	// Get download info
 	info, err := p.GetProviderDownloadInfo(namespace, name, version, osType, arch)
 	if err != nil {
@@ -216,13 +261,13 @@ func (p *ProxyService) DownloadAndCacheProvider(namespace, name, version, osType
 	}
 
 	// Create storage directory
-	dirPath := filepath.Join(p.storagePath, namespace, name, version, osType, arch)
+	dirPath := filepath.Join(p.storagePath, namespace, name, version, osType, arch) // #nosec G304 - path components validated above
 	if err := os.MkdirAll(dirPath, 0750); err != nil { // #nosec G301 - storage directory needs group access
 		return "", "", fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	// Check if file already exists
-	filePath := filepath.Join(dirPath, info.Filename)
+	filePath := filepath.Join(dirPath, filepath.Base(info.Filename)) // #nosec G304 - path components validated above
 	if _, err := os.Stat(filePath); err == nil {
 		// File exists, verify checksum
 		existingSHA256, _ := p.calculateFileSHA256(filePath)
@@ -279,20 +324,25 @@ func (p *ProxyService) DownloadAndCacheProvider(namespace, name, version, osType
 // DownloadAndStoreProvider downloads a provider from a given URL and stores it locally.
 // This is used for async caching when the download URL is already known.
 func (p *ProxyService) DownloadAndStoreProvider(namespace, name, version, osType, arch, downloadURL string) (string, string, error) {
+	// Validate path components to prevent path traversal
+	if err := validateProviderPath(namespace, name, version, osType, arch); err != nil {
+		return "", "", err
+	}
+
 	// Create storage directory
-	dirPath := filepath.Join(p.storagePath, namespace, name, version, osType, arch)
+	dirPath := filepath.Join(p.storagePath, namespace, name, version, osType, arch) // #nosec G304 - path components validated above
 	if err := os.MkdirAll(dirPath, 0750); err != nil { // #nosec G301 - storage directory needs group access
 		return "", "", fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	// Extract filename from URL
+	// Extract filename from URL and sanitize
 	parts := strings.Split(downloadURL, "/")
-	filename := parts[len(parts)-1]
-	if filename == "" {
+	filename := filepath.Base(parts[len(parts)-1]) // Use filepath.Base to sanitize
+	if filename == "" || filename == "." {
 		filename = fmt.Sprintf("terraform-provider-%s_%s_%s_%s.zip", name, version, osType, arch)
 	}
 
-	filePath := filepath.Join(dirPath, filename)
+	filePath := filepath.Join(dirPath, filename) // #nosec G304 - path components validated above
 
 	// Check if file already exists
 	if existingSHA256, err := p.calculateFileSHA256(filePath); err == nil {
@@ -340,16 +390,27 @@ func (p *ProxyService) DownloadAndStoreProvider(namespace, name, version, osType
 
 // SaveUploadedProvider saves an uploaded provider file.
 func (p *ProxyService) SaveUploadedProvider(namespace, name, version, osType, arch string, file io.Reader, filename string) (string, string, error) {
+	// Validate path components to prevent path traversal
+	if err := validateProviderPath(namespace, name, version, osType, arch); err != nil {
+		return "", "", err
+	}
+
+	// Sanitize filename
+	safeFilename := filepath.Base(filename)
+	if safeFilename == "" || safeFilename == "." {
+		return "", "", fmt.Errorf("invalid filename")
+	}
+
 	// Create storage directory
-	dirPath := filepath.Join(p.storagePath, namespace, name, version, osType, arch)
+	dirPath := filepath.Join(p.storagePath, namespace, name, version, osType, arch) // #nosec G304 - path components validated above
 	if err := os.MkdirAll(dirPath, 0750); err != nil { // #nosec G301 - storage directory needs group access
 		return "", "", fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	filePath := filepath.Join(dirPath, filename)
+	filePath := filepath.Join(dirPath, safeFilename) // #nosec G304 - path components validated above
 
 	// Create file
-	outFile, err := os.Create(filePath) // #nosec G304 - path is constructed from validated components
+	outFile, err := os.Create(filePath) // #nosec G304 - path components validated above
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create file: %w", err)
 	}
@@ -386,7 +447,12 @@ func (p *ProxyService) calculateFileSHA256(filePath string) (string, error) {
 
 // GetCachedFilePath returns the path to a cached provider file if it exists.
 func (p *ProxyService) GetCachedFilePath(namespace, name, version, osType, arch string) (string, bool) {
-	dirPath := filepath.Join(p.storagePath, namespace, name, version, osType, arch)
+	// Validate path components to prevent path traversal
+	if err := validateProviderPath(namespace, name, version, osType, arch); err != nil {
+		return "", false
+	}
+
+	dirPath := filepath.Join(p.storagePath, namespace, name, version, osType, arch) // #nosec G304 - path components validated above
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
 		return "", false
@@ -394,7 +460,7 @@ func (p *ProxyService) GetCachedFilePath(namespace, name, version, osType, arch 
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
-			return filepath.Join(dirPath, entry.Name()), true
+			return filepath.Join(dirPath, entry.Name()), true // #nosec G304 - path components validated above
 		}
 	}
 

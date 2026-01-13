@@ -4,6 +4,7 @@ package api
 import (
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -12,6 +13,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
+
+// sanitizeLogInput removes potentially dangerous characters from user input for safe logging.
+// This prevents log injection attacks.
+var logSanitizer = regexp.MustCompile(`[\r\n\t]`)
+
+func sanitizeForLog(s string) string {
+	return logSanitizer.ReplaceAllString(s, "_")
+}
 
 // ProviderMirrorHandler handles Terraform Provider Mirror Protocol requests.
 // This implements the protocol defined at:
@@ -233,8 +242,13 @@ func (h *ProviderMirrorHandler) buildLocalArchives(platforms []models.ProviderPl
 
 // asyncCacheProvider downloads and caches a provider version in the background.
 func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version string, platforms []proxy.Platform) {
+	// Sanitize inputs for logging to prevent log injection
+	safeNS := sanitizeForLog(namespace)
+	safeName := sanitizeForLog(name)
+	safeVer := sanitizeForLog(version)
+
 	log.Printf("[AsyncCache] Starting background cache for %s/%s v%s (%d platforms)",
-		namespace, name, version, len(platforms))
+		safeNS, safeName, safeVer, len(platforms))
 
 	// Refresh proxy settings
 	h.refreshProxySettings()
@@ -243,7 +257,7 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 	var existingProvider models.Provider
 	if err := h.db.Where("namespace = ? AND name = ? AND version = ?", namespace, name, version).
 		First(&existingProvider).Error; err == nil {
-		log.Printf("[AsyncCache] Provider %s/%s v%s already cached, skipping", namespace, name, version)
+		log.Printf("[AsyncCache] Provider %s/%s v%s already cached, skipping", safeNS, safeName, safeVer)
 		return
 	}
 
@@ -266,10 +280,14 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 
 	successCount := 0
 	for _, p := range platforms {
+		// Sanitize platform info for logging
+		safeOS := sanitizeForLog(p.OS)
+		safeArch := sanitizeForLog(p.Arch)
+
 		// Download and store each platform binary
 		downloadInfo, err := h.proxyService.GetProviderDownloadInfo(namespace, name, version, p.OS, p.Arch)
 		if err != nil {
-			log.Printf("[AsyncCache] Failed to get download info for %s/%s: %v", p.OS, p.Arch, err)
+			log.Printf("[AsyncCache] Failed to get download info for %s/%s: %v", safeOS, safeArch, err)
 			continue
 		}
 
@@ -277,7 +295,7 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 			namespace, name, version, p.OS, p.Arch, downloadInfo.DownloadURL,
 		)
 		if err != nil {
-			log.Printf("[AsyncCache] Failed to download %s/%s: %v", p.OS, p.Arch, err)
+			log.Printf("[AsyncCache] Failed to download %s/%s: %v", safeOS, safeArch, err)
 			continue
 		}
 
@@ -297,9 +315,9 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 		}
 
 		successCount++
-		log.Printf("[AsyncCache] Cached %s/%s v%s %s_%s", namespace, name, version, p.OS, p.Arch)
+		log.Printf("[AsyncCache] Cached %s/%s v%s %s_%s", safeNS, safeName, safeVer, safeOS, safeArch)
 	}
 
 	log.Printf("[AsyncCache] Completed caching %s/%s v%s: %d/%d platforms successful",
-		namespace, name, version, successCount, len(platforms))
+		safeNS, safeName, safeVer, successCount, len(platforms))
 }
