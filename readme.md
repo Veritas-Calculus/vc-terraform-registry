@@ -8,27 +8,27 @@
 
 A private Terraform Provider Registry offering enterprise-grade module and provider management solutions.
 
-### ✨ Features
+### Features
 
-- 🔒 **Private Deployment** - Complete private Terraform Provider Registry to protect internal infrastructure code
-- 🎨 **Apple-style UI** - Modern, clean and elegant Web user interface
-- 📦 **Offline Deployment** - Support fully offline environment deployment, suitable for internal networks
-- � **Provider Mirror** - Automatically proxy/cache providers from upstream registries (e.g., registry.terraform.io)
-- 📤 **Manual Upload** - Support manual provider binary upload for air-gapped environments
-- �📚 **Complete Documentation** - Built-in documentation system with Markdown format support
-- 🚀 **One-click Deployment** - Quick start with Docker Compose, simplified deployment process
-- 🔄 **Version Management** - Complete version control and history tracking
-- 🔍 **Search Functionality** - Quick search and discovery of Providers and modules
-- 🔐 **Access Control** - Support for authentication and authorization mechanisms
+- **Private Deployment** - Complete private Terraform Provider Registry to protect internal infrastructure code
+- **Apple-style UI** - Modern, clean and elegant Web user interface
+- **Offline Deployment** - Support fully offline environment deployment, suitable for internal networks
+- **Provider Mirror** - Automatically proxy/cache providers from upstream registries (e.g., registry.terraform.io)
+- **Manual Upload** - Support manual provider binary upload for air-gapped environments
+- **Complete Documentation** - Built-in documentation system with Markdown format support
+- **One-click Deployment** - Quick start with Docker Compose, simplified deployment process
+- **Version Management** - Complete version control and history tracking
+- **Search Functionality** - Quick search and discovery of Providers and modules
+- **Access Control** - Support for authentication and authorization mechanisms
 
-### 📋 Prerequisites
+### Prerequisites
 
 - Docker 20.10+
 - Docker Compose 2.0+
 - At least 2GB available memory
 - At least 10GB available disk space
 
-### 🚀 Quick Start
+### Quick Start
 
 #### Using Docker Compose
 
@@ -72,7 +72,7 @@ npm install
 npm run dev
 ```
 
-### 🛠️ Tech Stack
+### Tech Stack
 
 **Backend:**
 - Go 1.24
@@ -93,27 +93,27 @@ npm run dev
 
 一个私有化的 Terraform Provider Registry，提供企业级的模块和 Provider 管理解决方案。
 
-### ✨ 特性
+### 特性
 
-- 🔒 **私有化部署** - 完全的私有化 Terraform Provider Registry，保护企业内部基础设施代码
-- 🎨 **Apple 风格 UI** - 现代化、简洁优雅的 Web 用户界面
-- 📦 **离线部署** - 支持完全离线环境部署，适合内网环境
+- **私有化部署** - 完全的私有化 Terraform Provider Registry，保护企业内部基础设施代码
+- **Apple 风格 UI** - 现代化、简洁优雅的 Web 用户界面
+- **离线部署** - 支持完全离线环境部署，适合内网环境
 - � **Provider 镜像** - 自动代理/缓存上游 Registry（如 registry.terraform.io）的 Provider
-- 📤 **手动上传** - 支持手动上传 Provider 二进制文件，适用于隔离网络环境
-- �📚 **完整文档** - 内置文档系统，支持 Markdown 格式的模块和 Provider 文档
-- 🚀 **一键部署** - 通过 Docker Compose 快速启动，简化部署流程
-- 🔄 **版本管理** - 完整的版本控制和历史记录
-- 🔍 **搜索功能** - 快速搜索和发现 Providers 和模块
-- 🔐 **访问控制** - 支持认证和授权机制
+- **手动上传** - 支持手动上传 Provider 二进制文件，适用于隔离网络环境
+- �**完整文档** - 内置文档系统，支持 Markdown 格式的模块和 Provider 文档
+- **一键部署** - 通过 Docker Compose 快速启动，简化部署流程
+- **版本管理** - 完整的版本控制和历史记录
+- **搜索功能** - 快速搜索和发现 Providers 和模块
+- **访问控制** - 支持认证和授权机制
 
-### 📋 前置要求
+### 前置要求
 
 - Docker 20.10+
 - Docker Compose 2.0+
 - 至少 2GB 可用内存
 - 至少 10GB 可用磁盘空间
 
-### 🚀 快速开始
+### 快速开始
 
 #### 使用 Docker Compose 部署
 
@@ -193,7 +193,7 @@ make restart
 make clean
 ```
 
-### 🛠️ 技术栈
+### 技术栈
 
 **后端：**
 - Go 1.24
@@ -208,7 +208,7 @@ make clean
 - TailwindCSS 4
 - React Router 7
 
-### 📁 项目结构
+### 项目结构
 
 ```
 .
@@ -255,7 +255,7 @@ credentials "registry.example.com" {
 }
 ```
 
-## 📁 项目结构
+## 项目结构
 
 ```
 .
@@ -278,7 +278,7 @@ credentials "registry.example.com" {
 └── scripts/               # 部署和维护脚本
 ```
 
-## ⚙️ 配置说明
+## 配置说明
 
 ### 环境变量
 
@@ -300,7 +300,7 @@ credentials "registry.example.com" {
 - **S3 兼容存储** - 适合分布式部署
 - **阿里云 OSS** - 国内用户推荐
 
-## 📚 API 使用指南
+## API 使用指南
 
 ### 健康检查
 
@@ -340,7 +340,7 @@ curl "http://localhost:8080/api/v1/providers/search?q=aws"
 curl http://localhost:8080/api/v1/modules
 ```
 
-## 🔄 Provider 镜像功能 / Provider Mirror Feature
+## Provider 镜像功能 / Provider Mirror Feature
 
 ### 使用方式 / Usage
 
@@ -446,7 +446,7 @@ curl http://localhost:8080/v1/providers/telmate/proxmox/2.9.14/download/linux/am
 | Kubernetes | hashicorp | kubernetes | Kubernetes |
 | Cloudflare | cloudflare | cloudflare | Cloudflare |
 
-## 🔧 维护
+## 维护
 
 ### 备份
 
@@ -478,7 +478,7 @@ docker-compose pull
 docker-compose up -d
 ```
 
-## 🔐 安全建议
+## 安全建议
 
 1. **启用 HTTPS** - 生产环境务必使用 HTTPS
 2. **配置防火墙** - 限制访问来源
@@ -486,7 +486,7 @@ docker-compose up -d
 4. **更新密钥** - 定期轮换 API Token
 5. **审计日志** - 启用并定期检查审计日志
 
-## 🐛 故障排查
+## 故障排查
 
 ### 无法启动服务
 
@@ -508,7 +508,7 @@ docker-compose logs
 3. 检查存储后端是否正常
 4. 查看 Registry 日志
 
-## 🤝 贡献
+## 贡献
 
 欢迎提交 Issue 和 Pull Request！
 
@@ -518,20 +518,20 @@ docker-compose logs
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 开启 Pull Request
 
-## 📄 许可证
+## 许可证
 
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
 
-## 📞 联系方式
+## 联系方式
 
 - 项目主页: [https://github.com/Veritas-Calculus/vc-terraform-registry](https://github.com/Veritas-Calculus/vc-terraform-registry)
 - 问题反馈: [https://github.com/Veritas-Calculus/vc-terraform-registry/issues](https://github.com/Veritas-Calculus/vc-terraform-registry/issues)
 - 文档: [https://docs.example.com](https://docs.example.com)
 
-## 🙏 致谢
+## 致谢
 
 感谢所有为本项目做出贡献的开发者！
 
 ---
 
-⭐️ 如果这个项目对你有帮助，请给我们一个 Star！
+如果这个项目对你有帮助，请给我们一个 Star！
