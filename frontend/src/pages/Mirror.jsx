@@ -900,7 +900,7 @@ export default function Mirror() {
 
 provider_installation {
   network_mirror {
-    url = "https://${REGISTRY_HOST}:3443/"
+    url = "https://${REGISTRY_HOST}/"
   }
   direct {
     exclude = ["registry.terraform.io/*/*"]
@@ -912,7 +912,7 @@ provider_installation {
 {`terraform {
   required_providers {
     proxmox = {
-      source  = "${REGISTRY_HOST}:3443/telmate/proxmox"
+      source  = "${REGISTRY_HOST}/telmate/proxmox"
       version = "~> 2.9"
     }
   }

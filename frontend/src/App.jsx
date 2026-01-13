@@ -8,6 +8,7 @@ import Modules from './pages/Modules';
 import ProviderDetail from './pages/ProviderDetail';
 import ModuleDetail from './pages/ModuleDetail';
 import Mirror from './pages/Mirror';
+import Docs from './pages/Docs';
 import Login from './pages/Login';
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
                 <Route path="/modules" element={<Modules />} />
                 <Route path="/modules/:namespace/:name/:provider/:version" element={<ModuleDetail />} />
                 <Route path="/mirror" element={<Mirror />} />
+                <Route path="/docs" element={<Docs />} />
               </Routes>
             </Layout>
           } />
