@@ -177,7 +177,7 @@ function GettingStarted() {
 
       <SubSection title="Quick Start">
         <p className="text-gray-600 mb-4">1. Clone the repository:</p>
-        <CodeBlock>git clone https://github.com/Veritas-Calculus/vc-terraform-registry.git
+        <CodeBlock>git clone https://github.com/Veritas-Calculus/vc-terraform-registry.git &&
 cd vc-terraform-registry</CodeBlock>
 
         <p className="text-gray-600 mb-4">2. Generate SSL certificates (required for Terraform):</p>
