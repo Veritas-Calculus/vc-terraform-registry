@@ -2,11 +2,9 @@
 package api
 
 import (
-	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -16,14 +14,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// logSanitizer removes control characters that could be used for log injection attacks.
-// This includes newlines, carriage returns, tabs, and other control characters.
-var logSanitizer = regexp.MustCompile(`[\x00-\x1f\x7f]`)
-
-// logSafeChars matches any character that is NOT in a conservative "safe for logs" set.
-// Allowed characters are alphanumerics, space, and a limited set of punctuation.
-// Everything else is replaced with '?' to avoid confusing or forging log structure.
-var logSafeChars = regexp.MustCompile(`[^a-zA-Z0-9 .,_:@/\-]`)
+// validIdentifierStrict is used to validate OS/Arch values from upstream APIs.
+// These should only contain lowercase alphanumerics and common separators.
+var validIdentifierStrict = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,31}$`)
 
 // validIdentifier validates Terraform provider identifiers (namespace, name).
 // Valid identifiers contain only lowercase alphanumerics, hyphens, and underscores.
@@ -52,53 +45,18 @@ func validateProviderParams(namespace, name, version string) string {
 	return ""
 }
 
-// sanitizeForLog removes potentially dangerous characters from user input for safe logging.
-// This prevents log injection attacks by removing all control characters and restricting
-// the remaining characters to a conservative safe set.
-func sanitizeForLog(s string) string {
-	// First, remove all control characters (including newlines, tabs, etc.).
-	safe := logSanitizer.ReplaceAllString(s, "")
-
-	// Replace any character outside the allowed safe set with '?'.
-	safe = logSafeChars.ReplaceAllString(safe, "?")
-
-	// Trim leading and trailing spaces to avoid confusing log formatting.
-	safe = strings.TrimSpace(safe)
-
-	// Limit length to prevent log flooding.
-	if len(safe) > 100 {
-		safe = safe[:100] + "..."
+// validatePlatform validates OS and Arch values from upstream APIs.
+// Returns sanitized values that are safe to use. Invalid values are replaced with "invalid".
+func validatePlatform(os, arch string) (string, string) {
+	safeOS := "invalid"
+	safeArch := "invalid"
+	if validIdentifierStrict.MatchString(os) {
+		safeOS = os
 	}
-
-	return safe
-}
-
-// safeLogf is a helper that sanitizes all arguments before logging.
-// This provides defense-in-depth against log injection.
-func safeLogf(format string, args ...interface{}) {
-	sanitizedArgs := make([]interface{}, len(args))
-	for i, arg := range args {
-		if arg == nil {
-			sanitizedArgs[i] = nil
-			continue
-		}
-
-		// Obtain a string representation of the argument.
-		var s string
-		if str, ok := arg.(string); ok {
-			s = str
-		} else {
-			s = fmt.Sprint(arg)
-		}
-
-		// Sanitize and quote to make any remaining special characters visible.
-		safe := sanitizeForLog(s)
-		sanitizedArgs[i] = strconv.Quote(safe)
+	if validIdentifierStrict.MatchString(arch) {
+		safeArch = arch
 	}
-
-	// Format the message first, then log it as a single safe string.
-	msg := fmt.Sprintf(format, sanitizedArgs...)
-	log.Print(msg) //nolint:govet // format string is always a compile-time constant from caller
+	return safeOS, safeArch
 }
 
 // ProviderMirrorHandler handles Terraform Provider Mirror Protocol requests.
@@ -337,9 +295,14 @@ func (h *ProviderMirrorHandler) buildLocalArchives(platforms []models.ProviderPl
 // validated by validateProviderParams() before being passed here. Validated inputs contain
 // only safe characters (alphanumerics, hyphens, underscores, dots) and are safe to log directly.
 func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version string, platforms []proxy.Platform) {
-	// Inputs are pre-validated by the caller, so they are safe to log directly.
-	log.Printf("[AsyncCache] Starting background cache for %s/%s v%s (%d platforms)",
-		namespace, name, version, len(platforms))
+	// Using structured logging with slog - user inputs are passed as separate attributes,
+	// not interpolated into the message string, which prevents log injection.
+	slog.Info("Starting background cache",
+		"component", "AsyncCache",
+		"namespace", namespace,
+		"name", name,
+		"version", version,
+		"platforms", len(platforms))
 
 	// Refresh proxy settings
 	h.refreshProxySettings()
@@ -348,7 +311,11 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 	var existingProvider models.Provider
 	if err := h.db.Where("namespace = ? AND name = ? AND version = ?", namespace, name, version).
 		First(&existingProvider).Error; err == nil {
-		log.Printf("[AsyncCache] Provider %s/%s v%s already cached, skipping", namespace, name, version)
+		slog.Info("Provider already cached, skipping",
+			"component", "AsyncCache",
+			"namespace", namespace,
+			"name", name,
+			"version", version)
 		return
 	}
 
@@ -365,7 +332,9 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 	}
 
 	if err := h.db.Create(&provider).Error; err != nil {
-		log.Printf("[AsyncCache] Failed to create provider record: %v", err)
+		slog.Error("Failed to create provider record",
+			"component", "AsyncCache",
+			"error", err)
 		return
 	}
 
@@ -374,8 +343,13 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 		// Download and store each platform binary
 		downloadInfo, err := h.proxyService.GetProviderDownloadInfo(namespace, name, version, p.OS, p.Arch)
 		if err != nil {
-			// p.OS and p.Arch come from upstream API, use safeLogf for safety
-			safeLogf("[AsyncCache] Failed to get download info for %s/%s: %v", p.OS, p.Arch, err)
+			// Validate OS/Arch from upstream API before logging
+			safeOS, safeArch := validatePlatform(p.OS, p.Arch)
+			slog.Warn("Failed to get download info",
+				"component", "AsyncCache",
+				"os", safeOS,
+				"arch", safeArch,
+				"error", err)
 			continue
 		}
 
@@ -383,7 +357,12 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 			namespace, name, version, p.OS, p.Arch, downloadInfo.DownloadURL,
 		)
 		if err != nil {
-			safeLogf("[AsyncCache] Failed to download %s/%s: %v", p.OS, p.Arch, err)
+			safeOS, safeArch := validatePlatform(p.OS, p.Arch)
+			slog.Warn("Failed to download provider",
+				"component", "AsyncCache",
+				"os", safeOS,
+				"arch", safeArch,
+				"error", err)
 			continue
 		}
 
@@ -398,15 +377,28 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 		}
 
 		if err := h.db.Create(&platform).Error; err != nil {
-			log.Printf("[AsyncCache] Failed to create platform record: %v", err)
+			slog.Error("Failed to create platform record",
+				"component", "AsyncCache",
+				"error", err)
 			continue
 		}
 
 		successCount++
-		// p.OS and p.Arch come from upstream API, use safeLogf for safety
-		safeLogf("[AsyncCache] Cached %s/%s v%s %s_%s", namespace, name, version, p.OS, p.Arch)
+		safeOS, safeArch := validatePlatform(p.OS, p.Arch)
+		slog.Info("Cached provider platform",
+			"component", "AsyncCache",
+			"namespace", namespace,
+			"name", name,
+			"version", version,
+			"os", safeOS,
+			"arch", safeArch)
 	}
 
-	log.Printf("[AsyncCache] Completed caching %s/%s v%s: %d/%d platforms successful",
-		namespace, name, version, successCount, len(platforms))
+	slog.Info("Completed caching provider",
+		"component", "AsyncCache",
+		"namespace", namespace,
+		"name", name,
+		"version", version,
+		"success", successCount,
+		"total", len(platforms))
 }
