@@ -46,7 +46,7 @@ cp .env.example .env
 # Edit .env file to configure necessary parameters
 ```
 
-3. Start services
+2. Start services
 
 ```bash
 docker-compose up -d
@@ -54,7 +54,9 @@ docker-compose up -d
 
 4. Access Web UI
 
-Open browser and navigate to: `http://localhost:80`
+Open browser and navigate to: `https://localhost:3443`
+
+> Note: The registry requires HTTPS. For self-signed certificates, you may need to accept the security warning in your browser.
 
 #### Development Mode
 
@@ -98,9 +100,9 @@ npm run dev
 - **私有化部署** - 完全的私有化 Terraform Provider Registry，保护企业内部基础设施代码
 - **Apple 风格 UI** - 现代化、简洁优雅的 Web 用户界面
 - **离线部署** - 支持完全离线环境部署，适合内网环境
-- � **Provider 镜像** - 自动代理/缓存上游 Registry（如 registry.terraform.io）的 Provider
+- **Provider 镜像** - 自动代理/缓存上游 Registry（如 registry.terraform.io）的 Provider
 - **手动上传** - 支持手动上传 Provider 二进制文件，适用于隔离网络环境
-- �**完整文档** - 内置文档系统，支持 Markdown 格式的模块和 Provider 文档
+- **完整文档** - 内置文档系统，支持 Markdown 格式的模块和 Provider 文档
 - **一键部署** - 通过 Docker Compose 快速启动，简化部署流程
 - **版本管理** - 完整的版本控制和历史记录
 - **搜索功能** - 快速搜索和发现 Providers 和模块
@@ -124,20 +126,20 @@ npm run dev
 git clone https://github.com/Veritas-Calculus/vc-terraform-registry.git
 cd vc-terraform-registry
 
-# 方式1：使用启动脚本
-./start.sh
-
-# 方式2：使用 make 命令
+# 方式1：使用 make 命令
 make start
 
-# 方式3：使用 docker-compose
+# 方式2：使用 docker-compose
 docker-compose up -d
 ```
 
 服务启动后访问：
-- 前端 UI: http://localhost:3000
+- 前端 UI (HTTPS): https://localhost:3443
+- 前端 UI (HTTP): http://localhost:3000
 - 后端 API: http://localhost:8080
 - 健康检查: http://localhost:8080/health
+
+> 注意：Terraform 客户端需要使用 HTTPS (3443 端口)
 
 #### 开发模式
 
