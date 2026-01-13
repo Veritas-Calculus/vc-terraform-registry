@@ -132,7 +132,7 @@ func (h *MirrorHandler) UploadProvider(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Save the file
 	filePath, sha256sum, err := h.proxyService.SaveUploadedProvider(
@@ -941,8 +941,8 @@ func (h *MirrorHandler) ExportProvider(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create temp file"})
 		return
 	}
-	defer os.Remove(tempFile.Name())
-	defer tempFile.Close()
+	defer func() { _ = os.Remove(tempFile.Name()) }()
+	defer func() { _ = tempFile.Close() }()
 
 	zipWriter := zip.NewWriter(tempFile)
 
@@ -1064,7 +1064,7 @@ func (h *MirrorHandler) ImportProvider(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Save and open zip file
 	zipReader, cleanup, err := h.saveAndOpenZip(file)

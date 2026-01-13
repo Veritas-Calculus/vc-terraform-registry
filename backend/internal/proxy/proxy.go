@@ -271,7 +271,7 @@ func (p *ProxyService) GetProviderVersions(namespace, name string) (*VersionsRes
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch versions: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("upstream returned status %d", resp.StatusCode)
@@ -294,7 +294,7 @@ func (p *ProxyService) GetProviderDownloadInfo(namespace, name, version, osType,
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch download info: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("upstream returned status %d", resp.StatusCode)
@@ -346,7 +346,7 @@ func (p *ProxyService) DownloadAndCacheProvider(namespace, name, version, osType
 	if err != nil {
 		return "", "", fmt.Errorf("failed to download provider: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", "", fmt.Errorf("download returned status %d", resp.StatusCode)
@@ -358,7 +358,7 @@ func (p *ProxyService) DownloadAndCacheProvider(namespace, name, version, osType
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Write and calculate checksum simultaneously
 	hasher := sha256.New()
@@ -424,7 +424,7 @@ func (p *ProxyService) DownloadAndStoreProvider(namespace, name, version, osType
 	if err != nil {
 		return "", "", fmt.Errorf("failed to download provider: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", "", fmt.Errorf("download returned status %d", resp.StatusCode)
@@ -436,7 +436,7 @@ func (p *ProxyService) DownloadAndStoreProvider(namespace, name, version, osType
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Write and calculate checksum simultaneously
 	hasher := sha256.New()
@@ -485,7 +485,7 @@ func (p *ProxyService) SaveUploadedProvider(namespace, name, version, osType, ar
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create file: %w", err)
 	}
-	defer outFile.Close()
+	defer func() { _ = outFile.Close() }()
 
 	// Write and calculate checksum
 	hasher := sha256.New()
@@ -506,7 +506,7 @@ func (p *ProxyService) calculateFileSHA256(filePath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	hasher := sha256.New()
 	if _, err := io.Copy(hasher, file); err != nil {
@@ -608,7 +608,7 @@ func (p *ProxyService) fetchSearchResults(searchURL string) ([]SearchResult, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to search providers: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("upstream returned status %d", resp.StatusCode)
