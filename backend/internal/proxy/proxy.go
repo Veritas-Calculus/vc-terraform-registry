@@ -262,7 +262,7 @@ func (p *ProxyService) DownloadAndCacheProvider(namespace, name, version, osType
 
 	// Create storage directory
 	dirPath := filepath.Join(p.storagePath, namespace, name, version, osType, arch) // #nosec G304 - path components validated above
-	if err := os.MkdirAll(dirPath, 0750); err != nil { // #nosec G301 - storage directory needs group access
+	if err := os.MkdirAll(dirPath, 0750); err != nil {                              // #nosec G301 - storage directory needs group access
 		return "", "", fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -331,7 +331,7 @@ func (p *ProxyService) DownloadAndStoreProvider(namespace, name, version, osType
 
 	// Create storage directory
 	dirPath := filepath.Join(p.storagePath, namespace, name, version, osType, arch) // #nosec G304 - path components validated above
-	if err := os.MkdirAll(dirPath, 0750); err != nil { // #nosec G301 - storage directory needs group access
+	if err := os.MkdirAll(dirPath, 0750); err != nil {                              // #nosec G301 - storage directory needs group access
 		return "", "", fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -403,7 +403,7 @@ func (p *ProxyService) SaveUploadedProvider(namespace, name, version, osType, ar
 
 	// Create storage directory
 	dirPath := filepath.Join(p.storagePath, namespace, name, version, osType, arch) // #nosec G304 - path components validated above
-	if err := os.MkdirAll(dirPath, 0750); err != nil { // #nosec G301 - storage directory needs group access
+	if err := os.MkdirAll(dirPath, 0750); err != nil {                              // #nosec G301 - storage directory needs group access
 		return "", "", fmt.Errorf("failed to create directory: %w", err)
 	}
 
