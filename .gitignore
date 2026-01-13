@@ -3,7 +3,8 @@
 *.dll
 *.so
 *.dylib
-server
+/server
+backend/bin/
 
 # Test binary
 *.test
