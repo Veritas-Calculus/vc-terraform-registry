@@ -25,6 +25,33 @@ var logSanitizer = regexp.MustCompile(`[\x00-\x1f\x7f]`)
 // Everything else is replaced with '?' to avoid confusing or forging log structure.
 var logSafeChars = regexp.MustCompile(`[^a-zA-Z0-9 .,_:@/\-]`)
 
+// validIdentifier validates Terraform provider identifiers (namespace, name).
+// Valid identifiers contain only lowercase alphanumerics, hyphens, and underscores.
+// This validation prevents log injection by rejecting malicious input at the entry point.
+var validIdentifier = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
+
+// validVersion validates semantic version strings.
+// Allows formats like: 1.0.0, 1.0.0-beta, 1.0.0-rc.1, 1.0.0+build
+var validVersion = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9._-]+)?(\+[a-zA-Z0-9._-]+)?$`)
+
+// validateProviderParams validates namespace, name, and version parameters.
+// Returns an error message if validation fails, or empty string if valid.
+// This is the primary defense against log injection - validated inputs are safe to log.
+func validateProviderParams(namespace, name, version string) string {
+	if len(namespace) > 64 || !validIdentifier.MatchString(namespace) {
+		return "invalid namespace: must be 1-64 lowercase alphanumeric characters, hyphens, or underscores"
+	}
+	if len(name) > 64 || !validIdentifier.MatchString(name) {
+		return "invalid name: must be 1-64 lowercase alphanumeric characters, hyphens, or underscores"
+	}
+	if version != "" {
+		if len(version) > 64 || !validVersion.MatchString(version) {
+			return "invalid version: must be a valid semantic version (e.g., 1.0.0)"
+		}
+	}
+	return ""
+}
+
 // sanitizeForLog removes potentially dangerous characters from user input for safe logging.
 // This prevents log injection attacks by removing all control characters and restricting
 // the remaining characters to a conservative safe set.
@@ -132,6 +159,12 @@ func (h *ProviderMirrorHandler) ListAvailableVersions(c *gin.Context) {
 	namespace := c.Param("namespace")
 	name := c.Param("name")
 
+	// Validate input parameters to prevent log injection and ensure data integrity.
+	if errMsg := validateProviderParams(namespace, name, ""); errMsg != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": errMsg})
+		return
+	}
+
 	// Query all versions for this provider from the database
 	var providers []models.Provider
 	if err := h.db.Where("namespace = ? AND name = ?", namespace, name).
@@ -191,6 +224,13 @@ func (h *ProviderMirrorHandler) GetVersionArchives(c *gin.Context) {
 
 	// Remove .json suffix if present
 	version = strings.TrimSuffix(version, ".json")
+
+	// Validate input parameters to prevent log injection and ensure data integrity.
+	// After validation, these values are safe to use in logs without sanitization.
+	if errMsg := validateProviderParams(namespace, name, version); errMsg != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": errMsg})
+		return
+	}
 
 	host, scheme := getHostAndScheme(c)
 
@@ -293,9 +333,12 @@ func (h *ProviderMirrorHandler) buildLocalArchives(platforms []models.ProviderPl
 }
 
 // asyncCacheProvider downloads and caches a provider version in the background.
+// IMPORTANT: This function assumes that namespace, name, and version have already been
+// validated by validateProviderParams() before being passed here. Validated inputs contain
+// only safe characters (alphanumerics, hyphens, underscores, dots) and are safe to log directly.
 func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version string, platforms []proxy.Platform) {
-	// Use safeLogf for all user-controlled inputs to prevent log injection
-	safeLogf("[AsyncCache] Starting background cache for %s/%s v%s (%d platforms)",
+	// Inputs are pre-validated by the caller, so they are safe to log directly.
+	log.Printf("[AsyncCache] Starting background cache for %s/%s v%s (%d platforms)",
 		namespace, name, version, len(platforms))
 
 	// Refresh proxy settings
@@ -305,7 +348,7 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 	var existingProvider models.Provider
 	if err := h.db.Where("namespace = ? AND name = ? AND version = ?", namespace, name, version).
 		First(&existingProvider).Error; err == nil {
-		safeLogf("[AsyncCache] Provider %s/%s v%s already cached, skipping", namespace, name, version)
+		log.Printf("[AsyncCache] Provider %s/%s v%s already cached, skipping", namespace, name, version)
 		return
 	}
 
@@ -331,6 +374,7 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 		// Download and store each platform binary
 		downloadInfo, err := h.proxyService.GetProviderDownloadInfo(namespace, name, version, p.OS, p.Arch)
 		if err != nil {
+			// p.OS and p.Arch come from upstream API, use safeLogf for safety
 			safeLogf("[AsyncCache] Failed to get download info for %s/%s: %v", p.OS, p.Arch, err)
 			continue
 		}
@@ -359,9 +403,10 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 		}
 
 		successCount++
+		// p.OS and p.Arch come from upstream API, use safeLogf for safety
 		safeLogf("[AsyncCache] Cached %s/%s v%s %s_%s", namespace, name, version, p.OS, p.Arch)
 	}
 
-	safeLogf("[AsyncCache] Completed caching %s/%s v%s: %d/%d platforms successful",
+	log.Printf("[AsyncCache] Completed caching %s/%s v%s: %d/%d platforms successful",
 		namespace, name, version, successCount, len(platforms))
 }
