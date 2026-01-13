@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { fetchMirroredProviders, fetchUpstreamVersions, mirrorProviderWithProgress, uploadProvider, deleteProvider, getExportProviderURL, importProvider, fetchProviderVersionsDetail, REGISTRY_HOST } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import SyncSchedulesPanel from '../components/SyncSchedulesPanel';
@@ -7,10 +6,8 @@ import SettingsPanel from '../components/SettingsPanel';
 
 export default function Mirror() {
   const { isAuthenticated } = useAuth();
-  const navigate = useNavigate();
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('mirrored');
   const [mirrorForm, setMirrorForm] = useState({ namespace: '', name: '', version: '', os: 'all', arch: 'all', proxyUrl: '' });
   const [uploadForm, setUploadForm] = useState({ namespace: '', name: '', version: '', os: 'linux', arch: 'amd64', description: '', file: null });
@@ -63,7 +60,7 @@ export default function Mirror() {
       const data = await fetchMirroredProviders();
       setProviders(data.providers || []);
     } catch (err) {
-      setError(err.message);
+      setMessage({ type: 'error', text: `Failed to load providers: ${err.message}` });
     } finally {
       setLoading(false);
     }
