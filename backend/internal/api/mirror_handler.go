@@ -1209,13 +1209,24 @@ func (h *MirrorHandler) findFileInZip(zipReader *zip.ReadCloser, path string) *z
 func (h *MirrorHandler) extractZipFile(zipFile *zip.File, namespace, name, version string, pm PlatformManifest) (string, error) {
 	const maxFileSize = 500 * 1024 * 1024
 
-	dirPath := filepath.Join(h.storagePath, namespace, name, version, pm.OS, pm.Arch)
-	if err := os.MkdirAll(dirPath, 0750); err != nil { // #nosec G301
+	// Build safe directory path using validated components
+	dirPath, err := proxy.BuildSafeProviderPath(h.storagePath, namespace, name, version, pm.OS, pm.Arch)
+	if err != nil {
+		return "", fmt.Errorf("invalid path components: %w", err)
+	}
+
+	if err := os.MkdirAll(dirPath, 0750); err != nil {
 		return "", err
 	}
 
-	filePath := filepath.Join(dirPath, pm.Filename)
-	outFile, err := os.Create(filePath) // #nosec G304
+	// Sanitize filename
+	safeFilename, err := proxy.SanitizeFilename(pm.Filename)
+	if err != nil {
+		return "", fmt.Errorf("invalid filename: %w", err)
+	}
+
+	filePath := filepath.Join(dirPath, safeFilename)
+	outFile, err := os.Create(filePath)
 	if err != nil {
 		return "", err
 	}
@@ -1226,7 +1237,7 @@ func (h *MirrorHandler) extractZipFile(zipFile *zip.File, namespace, name, versi
 		return "", err
 	}
 
-	_, err = io.Copy(outFile, io.LimitReader(rc, int64(maxFileSize))) // #nosec G110
+	_, err = io.Copy(outFile, io.LimitReader(rc, int64(maxFileSize)))
 	_ = rc.Close()
 	_ = outFile.Close()
 
