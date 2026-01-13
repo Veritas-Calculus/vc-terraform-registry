@@ -88,32 +88,6 @@ function Home() {
         </div>
       </section>
 
-      <section className="bg-gray-50 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">
-            Getting Started
-          </h2>
-          <div className="bg-white rounded-lg shadow-sm p-8 max-w-3xl mx-auto">
-            <div className="space-y-6">
-              <Step
-                number="1"
-                title="Clone the repository"
-                code="git clone https://github.com/Veritas-Calculus/vc-terraform-registry.git"
-              />
-              <Step
-                number="2"
-                title="Start the service"
-                code="docker-compose up -d"
-              />
-              <Step
-                number="3"
-                title="Access the registry"
-                description="Open your browser and navigate to http://localhost:8080"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
@@ -124,27 +98,6 @@ function FeatureCard({ icon, title, description }) {
       <div className="text-blue-600 mb-4">{icon}</div>
       <h3 className="text-xl font-semibold text-gray-900 mb-2">{title}</h3>
       <p className="text-gray-600">{description}</p>
-    </div>
-  );
-}
-
-function Step({ number, title, code, description }) {
-  return (
-    <div className="flex gap-4">
-      <div className="flex-shrink-0">
-        <div className="w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center font-semibold">
-          {number}
-        </div>
-      </div>
-      <div className="flex-1">
-        <h4 className="text-lg font-semibold text-gray-900 mb-2">{title}</h4>
-        {code && (
-          <pre className="bg-gray-50 rounded-lg p-4 overflow-x-auto">
-            <code className="text-sm text-gray-800">{code}</code>
-          </pre>
-        )}
-        {description && <p className="text-gray-600">{description}</p>}
-      </div>
     </div>
   );
 }

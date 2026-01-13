@@ -890,12 +890,17 @@ export default function Mirror() {
       <div className="mt-12 p-6 bg-gray-50 rounded-2xl">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Using This Registry</h3>
         <p className="text-gray-600 mb-4">Configure Terraform to use this registry as a mirror:</p>
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <p className="text-amber-800 text-sm">
+            <strong>Note:</strong> HTTPS is required. Replace the port number with your actual HTTPS port (default: 3443).
+          </p>
+        </div>
         <pre className="bg-gray-900 text-gray-100 p-4 rounded-xl overflow-x-auto text-sm">
 {`# ~/.terraformrc or terraform.rc
 
 provider_installation {
   network_mirror {
-    url = "http://${REGISTRY_HOST}/"
+    url = "https://${REGISTRY_HOST}:3443/"
   }
   direct {
     exclude = ["registry.terraform.io/*/*"]
@@ -907,7 +912,7 @@ provider_installation {
 {`terraform {
   required_providers {
     proxmox = {
-      source  = "${REGISTRY_HOST}/telmate/proxmox"
+      source  = "${REGISTRY_HOST}:3443/telmate/proxmox"
       version = "~> 2.9"
     }
   }
