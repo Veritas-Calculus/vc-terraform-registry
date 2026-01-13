@@ -289,15 +289,15 @@ func (h *MirrorHandler) getProxyService(proxyURL string) *proxy.ProxyService {
 func (h *MirrorHandler) fetchPlatformsToMirror(proxyService *proxy.ProxyService, namespace, name, version, osType, arch string) ([]platformInfo, string, error) {
 	versions, err := proxyService.GetProviderVersions(namespace, name)
 	if err != nil {
-		return nil, "", fmt.Errorf("Failed to get versions: %v", err)
+		return nil, "", fmt.Errorf("failed to get versions: %v", err)
 	}
 	if len(versions.Versions) == 0 {
-		return nil, "", fmt.Errorf("No versions available")
+		return nil, "", fmt.Errorf("no versions available")
 	}
 
 	platforms, resolvedVersion := getPlatformsForVersion(versions, version, osType, arch)
 	if len(platforms) == 0 {
-		return nil, "", fmt.Errorf("No matching platforms found")
+		return nil, "", fmt.Errorf("no matching platforms found")
 	}
 	return platforms, resolvedVersion, nil
 }
@@ -1108,20 +1108,20 @@ func (h *MirrorHandler) ImportProvider(c *gin.Context) {
 func (h *MirrorHandler) saveAndOpenZip(file io.Reader) (*zip.ReadCloser, func(), error) {
 	tempFile, err := os.CreateTemp("", "provider-import-*.zip")
 	if err != nil {
-		return nil, nil, fmt.Errorf("Failed to create temp file")
+		return nil, nil, fmt.Errorf("failed to create temp file")
 	}
 
 	if _, err := io.Copy(tempFile, file); err != nil {
 		_ = tempFile.Close()
 		_ = os.Remove(tempFile.Name())
-		return nil, nil, fmt.Errorf("Failed to save uploaded file")
+		return nil, nil, fmt.Errorf("failed to save uploaded file")
 	}
 	_ = tempFile.Close()
 
 	zipReader, err := zip.OpenReader(tempFile.Name())
 	if err != nil {
 		_ = os.Remove(tempFile.Name())
-		return nil, nil, fmt.Errorf("Invalid zip file")
+		return nil, nil, fmt.Errorf("invalid zip file")
 	}
 
 	cleanup := func() {
