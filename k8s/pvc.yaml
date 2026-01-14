@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: terraform-registry-data
+  namespace: terraform-registry
+  labels:
+    app.kubernetes.io/name: terraform-registry
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  # Uncomment and set your storage class
+  # storageClassName: standard

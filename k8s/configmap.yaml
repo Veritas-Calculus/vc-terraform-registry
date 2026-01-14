@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: terraform-registry-config
+  namespace: terraform-registry
+  labels:
+    app.kubernetes.io/name: terraform-registry
+    app.kubernetes.io/component: config
+data:
+  SERVER_PORT: "8080"
+  SERVER_HOST: "0.0.0.0"
+  SERVER_MODE: "release"
+  DATABASE_URL: "sqlite:/data/registry.db"
+  STORAGE_PATH: "/data/registry"
+  STORAGE_TYPE: "local"
+  AUTH_ENABLED: "true"
+  LOG_LEVEL: "info"

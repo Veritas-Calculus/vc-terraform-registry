@@ -19,6 +19,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      attestations: write
+      id-token: write
 
     steps:
       - name: Checkout code
@@ -60,6 +62,21 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Disable provenance to avoid unknown/unknown architecture issue
+          provenance: false
+          sbom: false
+
+      # Make package public (requires admin token or manual setting first time)
+      - name: Make package public
+        continue-on-error: true
+        run: |
+          curl -L \
+            -X PATCH \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/orgs/${{ github.repository_owner }}/packages/container/$(echo "${{ env.BACKEND_IMAGE_NAME }}" | sed 's|.*/||')/versions \
+            -d '{"visibility":"public"}' || true
 
   build-and-push-frontend:
     name: Build and Push Frontend
@@ -67,6 +84,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      attestations: write
+      id-token: write
 
     steps:
       - name: Checkout code
@@ -108,3 +127,18 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Disable provenance to avoid unknown/unknown architecture issue
+          provenance: false
+          sbom: false
+
+      # Make package public (requires admin token or manual setting first time)
+      - name: Make package public
+        continue-on-error: true
+        run: |
+          curl -L \
+            -X PATCH \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/orgs/${{ github.repository_owner }}/packages/container/$(echo "${{ env.FRONTEND_IMAGE_NAME }}" | sed 's|.*/||')/versions \
+            -d '{"visibility":"public"}' || true

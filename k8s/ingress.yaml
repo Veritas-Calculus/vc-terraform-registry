@@ -1,0 +1,68 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: terraform-registry
+  namespace: terraform-registry
+  labels:
+    app.kubernetes.io/name: terraform-registry
+    app.kubernetes.io/component: ingress
+  annotations:
+    # Nginx Ingress Controller annotations
+    nginx.ingress.kubernetes.io/proxy-body-size: "500m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    # Enable SSL redirect
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # For cert-manager (optional)
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  # Uncomment for TLS
+  # tls:
+  #   - hosts:
+  #       - registry.example.com
+  #     secretName: terraform-registry-tls
+  rules:
+    - host: registry.example.com  # Change to your domain
+      http:
+        paths:
+          # API routes -> Backend
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: terraform-registry-backend
+                port:
+                  number: 8080
+          # Terraform Provider Protocol routes -> Backend
+          - path: /v1
+            pathType: Prefix
+            backend:
+              service:
+                name: terraform-registry-backend
+                port:
+                  number: 8080
+          # Health check -> Backend
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: terraform-registry-backend
+                port:
+                  number: 8080
+          # .well-known for Terraform discovery -> Backend
+          - path: /.well-known
+            pathType: Prefix
+            backend:
+              service:
+                name: terraform-registry-backend
+                port:
+                  number: 8080
+          # All other routes -> Frontend
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: terraform-registry-frontend
+                port:
+                  number: 80

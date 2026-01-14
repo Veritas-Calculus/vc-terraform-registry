@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: terraform-registry-backend
+  namespace: terraform-registry
+  labels:
+    app.kubernetes.io/name: terraform-registry
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: terraform-registry
+      app.kubernetes.io/component: backend
+  strategy:
+    type: Recreate  # Use Recreate for SQLite (single writer)
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: terraform-registry
+        app.kubernetes.io/component: backend
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: backend
+          image: ghcr.io/veritas-calculus/vc-terraform-registry-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: terraform-registry-config
+          env:
+            - name: AUTH_SECRETKEY
+              valueFrom:
+                secretKeyRef:
+                  name: terraform-registry-secret
+                  key: AUTH_SECRETKEY
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: false
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: terraform-registry-data
