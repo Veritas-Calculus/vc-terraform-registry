@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Veritas-Calculus/vc-terraform-registry/internal/logsafe"
 	"github.com/Veritas-Calculus/vc-terraform-registry/internal/models"
 	"github.com/Veritas-Calculus/vc-terraform-registry/internal/proxy"
 	"github.com/robfig/cron/v3"
@@ -111,7 +112,7 @@ func (s *Scheduler) runSync(scheduleID uint) {
 		return
 	}
 
-	log.Printf("Running sync for %s/%s", schedule.Namespace, schedule.Name)
+	log.Printf("Running sync for %s/%s", logsafe.Clean(schedule.Namespace), logsafe.Clean(schedule.Name))
 
 	now := time.Now()
 	schedule.LastRunAt = &now
@@ -125,11 +126,11 @@ func (s *Scheduler) runSync(scheduleID uint) {
 	if err != nil {
 		schedule.LastStatus = "failed"
 		schedule.LastError = err.Error()
-		log.Printf("Sync failed for %s/%s: %v", schedule.Namespace, schedule.Name, err)
+		log.Printf("Sync failed for %s/%s: %s", logsafe.Clean(schedule.Namespace), logsafe.Clean(schedule.Name), logsafe.CleanErr(err))
 	} else {
 		schedule.LastStatus = "success"
 		schedule.LastError = ""
-		log.Printf("Sync completed for %s/%s", schedule.Namespace, schedule.Name)
+		log.Printf("Sync completed for %s/%s", logsafe.Clean(schedule.Namespace), logsafe.Clean(schedule.Name))
 	}
 
 	schedule.LastRunAt = &finishTime
@@ -194,7 +195,7 @@ func (s *Scheduler) getPlatformsToMirror(proxyService *proxy.ProxyService, names
 func (s *Scheduler) downloadAndSavePlatform(proxyService *proxy.ProxyService, namespace, name, version, osType, arch string) {
 	filePath, sha256sum, err := proxyService.DownloadAndCacheProvider(namespace, name, version, osType, arch)
 	if err != nil {
-		log.Printf("Failed to download %s_%s: %v", osType, arch, err)
+		log.Printf("Failed to download %s_%s: %s", logsafe.Clean(osType), logsafe.Clean(arch), logsafe.CleanErr(err))
 		return
 	}
 

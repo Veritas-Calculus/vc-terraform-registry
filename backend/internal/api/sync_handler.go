@@ -63,6 +63,13 @@ func (h *SyncHandler) CreateSchedule(c *gin.Context) {
 		return
 	}
 
+	// Namespace/Name are persisted, then later reach log records, upstream URLs and
+	// filesystem paths. Hold them to the same rules the mirror protocol enforces.
+	if errMsg := validateProviderParams(req.Namespace, req.Name, ""); errMsg != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": errMsg})
+		return
+	}
+
 	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
 	schedule, err := parser.Parse(req.CronExpr)
 	if err != nil {
