@@ -28,6 +28,7 @@ func TestValidateProviderParams(t *testing.T) {
 		{"invalid version - not semver", "hashicorp", "aws", "5.0", true},
 		{"invalid version - text", "hashicorp", "aws", "latest", true},
 		{"invalid version - injection attempt", "hashicorp", "aws", "1.0.0\nmalicious", true},
+		{"invalid name - carriage return injection", "hashicorp", "aws\rFORGED", "1.0.0", true},
 		{"empty namespace", "", "aws", "1.0.0", true},
 		{"empty provider", "hashicorp", "", "1.0.0", true},
 	}

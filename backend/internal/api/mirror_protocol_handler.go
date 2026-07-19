@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Veritas-Calculus/vc-terraform-registry/internal/logsafe"
 	"github.com/Veritas-Calculus/vc-terraform-registry/internal/models"
 	"github.com/Veritas-Calculus/vc-terraform-registry/internal/proxy"
 	"github.com/gin-gonic/gin"
@@ -20,7 +21,7 @@ var validIdentifierStrict = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,31}$`)
 
 // validIdentifier validates Terraform provider identifiers (namespace, name).
 // Valid identifiers contain only lowercase alphanumerics, hyphens, and underscores.
-// This validation prevents log injection by rejecting malicious input at the entry point.
+// Anchored with ^...$ (Go's $ is end-of-text), so a matching value cannot contain CR or LF.
 var validIdentifier = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
 
 // validVersion validates semantic version strings.
@@ -29,7 +30,9 @@ var validVersion = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9._-]+)
 
 // validateProviderParams validates namespace, name, and version parameters.
 // Returns an error message if validation fails, or empty string if valid.
-// This is the primary defense against log injection - validated inputs are safe to log.
+// This is an input-integrity control, not a log sanitizer: CodeQL's go/log-injection
+// query has no barrier-guard support, so validated values remain tainted. Values
+// destined for a log record must additionally pass through logsafe.Clean.
 func validateProviderParams(namespace, name, version string) string {
 	if len(namespace) > 64 || !validIdentifier.MatchString(namespace) {
 		return "invalid namespace: must be 1-64 lowercase alphanumeric characters, hyphens, or underscores"
@@ -46,7 +49,9 @@ func validateProviderParams(namespace, name, version string) string {
 }
 
 // validatePlatform validates OS and Arch values from upstream APIs.
-// Returns sanitized values that are safe to use. Invalid values are replaced with "invalid".
+// Values failing validIdentifierStrict are replaced with the literal "invalid".
+// Because that pattern is anchored, a returned value cannot contain CR or LF --
+// a real guarantee, though not one CodeQL recognizes as a barrier.
 func validatePlatform(os, arch string) (string, string) {
 	safeOS := "invalid"
 	safeArch := "invalid"
@@ -183,8 +188,8 @@ func (h *ProviderMirrorHandler) GetVersionArchives(c *gin.Context) {
 	// Remove .json suffix if present
 	version = strings.TrimSuffix(version, ".json")
 
-	// Validate input parameters to prevent log injection and ensure data integrity.
-	// After validation, these values are safe to use in logs without sanitization.
+	// Validate input parameters for data integrity and to reject malformed requests.
+	// Logging still routes these values through logsafe.Clean; see asyncCacheProvider.
 	if errMsg := validateProviderParams(namespace, name, version); errMsg != "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": errMsg})
 		return
@@ -291,17 +296,19 @@ func (h *ProviderMirrorHandler) buildLocalArchives(platforms []models.ProviderPl
 }
 
 // asyncCacheProvider downloads and caches a provider version in the background.
-// IMPORTANT: This function assumes that namespace, name, and version have already been
-// validated by validateProviderParams() before being passed here. Validated inputs contain
-// only safe characters (alphanumerics, hyphens, underscores, dots) and are safe to log directly.
+// Callers must have run validateProviderParams() on namespace/name/version first.
+// The raw values are used for database and upstream calls; logsafe.Clean copies are
+// used for every log record. Do not reassign the parameters to the cleaned values.
 func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version string, platforms []proxy.Platform) {
-	// Using structured logging with slog - user inputs are passed as separate attributes,
-	// not interpolated into the message string, which prevents log injection.
+	// Log-only copies. The unscrubbed namespace/name/version must keep flowing to
+	// h.db and h.proxyService below.
+	logNS, logName, logVer := logsafe.Clean(namespace), logsafe.Clean(name), logsafe.Clean(version)
+
 	slog.Info("Starting background cache",
 		"component", "AsyncCache",
-		"namespace", namespace,
-		"name", name,
-		"version", version,
+		"namespace", logNS,
+		"name", logName,
+		"version", logVer,
 		"platforms", len(platforms))
 
 	// Refresh proxy settings
@@ -313,9 +320,9 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 		First(&existingProvider).Error; err == nil {
 		slog.Info("Provider already cached, skipping",
 			"component", "AsyncCache",
-			"namespace", namespace,
-			"name", name,
-			"version", version)
+			"namespace", logNS,
+			"name", logName,
+			"version", logVer)
 		return
 	}
 
@@ -334,7 +341,7 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 	if err := h.db.Create(&provider).Error; err != nil {
 		slog.Error("Failed to create provider record",
 			"component", "AsyncCache",
-			"error", err)
+			"error", logsafe.CleanErr(err))
 		return
 	}
 
@@ -349,7 +356,7 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 				"component", "AsyncCache",
 				"os", safeOS,
 				"arch", safeArch,
-				"error", err)
+				"error", logsafe.CleanErr(err))
 			continue
 		}
 
@@ -362,7 +369,7 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 				"component", "AsyncCache",
 				"os", safeOS,
 				"arch", safeArch,
-				"error", err)
+				"error", logsafe.CleanErr(err))
 			continue
 		}
 
@@ -379,7 +386,7 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 		if err := h.db.Create(&platform).Error; err != nil {
 			slog.Error("Failed to create platform record",
 				"component", "AsyncCache",
-				"error", err)
+				"error", logsafe.CleanErr(err))
 			continue
 		}
 
@@ -387,18 +394,18 @@ func (h *ProviderMirrorHandler) asyncCacheProvider(namespace, name, version stri
 		safeOS, safeArch := validatePlatform(p.OS, p.Arch)
 		slog.Info("Cached provider platform",
 			"component", "AsyncCache",
-			"namespace", namespace,
-			"name", name,
-			"version", version,
+			"namespace", logNS,
+			"name", logName,
+			"version", logVer,
 			"os", safeOS,
 			"arch", safeArch)
 	}
 
 	slog.Info("Completed caching provider",
 		"component", "AsyncCache",
-		"namespace", namespace,
-		"name", name,
-		"version", version,
+		"namespace", logNS,
+		"name", logName,
+		"version", logVer,
 		"success", successCount,
 		"total", len(platforms))
 }
