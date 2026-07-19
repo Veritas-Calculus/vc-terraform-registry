@@ -9,18 +9,22 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
-  const [loading, setLoading] = useState(true);
+  // Starts true only when a stored token still needs validating; every exit path
+  // of fetchCurrentUser clears it in its `finally`. Must stay in sync with the
+  // token effect below -- see the comment there.
+  const [loading, setLoading] = useState(!!token);
   const [authEnabled, setAuthEnabled] = useState(true);
 
   useEffect(() => {
     checkAuthStatus();
   }, []);
 
+  // No else-branch: with no token, `loading` was already initialised to false
+  // above. Reverting that initialiser without restoring this branch would strand
+  // signed-out users at loading === true forever, hiding the Sign In button.
   useEffect(() => {
     if (token) {
       fetchCurrentUser();
-    } else {
-      setLoading(false);
     }
   }, [token]);
 

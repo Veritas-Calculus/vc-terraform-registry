@@ -8,20 +8,20 @@ function ModuleDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const loadModule = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchModule(namespace, name, provider, version);
+        setModule(data);
+      } catch (error) {
+        console.error('Failed to load module:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadModule();
   }, [namespace, name, provider, version]);
-
-  const loadModule = async () => {
-    try {
-      setLoading(true);
-      const data = await fetchModule(namespace, name, provider, version);
-      setModule(data);
-    } catch (error) {
-      console.error('Failed to load module:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading) {
     return (

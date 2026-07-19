@@ -12,35 +12,44 @@ function Providers() {
   const [total, setTotal] = useState(0);
   const [onlineSearch, setOnlineSearch] = useState(false);
 
-  useEffect(() => {
+  // Reset pagination when the search query changes. This runs during render
+  // (React's documented "adjusting state when a prop changes" pattern) rather
+  // than in an effect, so `page` is already 1 by the time the fetch effect runs.
+  //
+  // The prevQuery sentinel and the `if` guard are REQUIRED, not boilerplate:
+  // react-hooks/set-state-in-render rejects an unguarded setState during render.
+  // Do not "simplify" this into a bare setPage call or a useRef.
+  const [prevQuery, setPrevQuery] = useState(query);
+  if (prevQuery !== query) {
+    setPrevQuery(query);
     setPage(1);
-  }, [query]);
+  }
 
   useEffect(() => {
+    const loadProviders = async () => {
+      try {
+        setLoading(true);
+        if (query) {
+          const data = await searchProviders(query);
+          setProviders(data.providers || []);
+          setTotal(data.total || 0);
+          setOnlineSearch(data.online_search || false);
+        } else {
+          const data = await fetchProviders({ page, limit: 20 });
+          setProviders(data.providers || []);
+          setTotal(data.total || 0);
+          setOnlineSearch(false);
+        }
+      } catch (error) {
+        console.error('Failed to load providers:', error);
+        setProviders([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadProviders();
   }, [page, query]);
-
-  const loadProviders = async () => {
-    try {
-      setLoading(true);
-      if (query) {
-        const data = await searchProviders(query);
-        setProviders(data.providers || []);
-        setTotal(data.total || 0);
-        setOnlineSearch(data.online_search || false);
-      } else {
-        const data = await fetchProviders({ page, limit: 20 });
-        setProviders(data.providers || []);
-        setTotal(data.total || 0);
-        setOnlineSearch(false);
-      }
-    } catch (error) {
-      console.error('Failed to load providers:', error);
-      setProviders([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

@@ -35,7 +35,6 @@ export default function Mirror() {
   // Auto-fetch versions when namespace and name are both filled (only for authenticated users)
   useEffect(() => {
     if (!isAuthenticated || !mirrorForm.namespace || !mirrorForm.name) {
-      setUpstreamVersions(null);
       return;
     }
 
@@ -475,7 +474,10 @@ export default function Mirror() {
                   <input
                     type="text"
                     value={mirrorForm.namespace}
-                    onChange={(e) => setMirrorForm({ ...mirrorForm, namespace: e.target.value })}
+                    onChange={(e) => {
+                      setMirrorForm({ ...mirrorForm, namespace: e.target.value });
+                      if (!e.target.value) setUpstreamVersions(null);
+                    }}
                     placeholder="e.g., telmate"
                     className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
@@ -485,7 +487,10 @@ export default function Mirror() {
                   <input
                     type="text"
                     value={mirrorForm.name}
-                    onChange={(e) => setMirrorForm({ ...mirrorForm, name: e.target.value })}
+                    onChange={(e) => {
+                      setMirrorForm({ ...mirrorForm, name: e.target.value });
+                      if (!e.target.value) setUpstreamVersions(null);
+                    }}
                     placeholder="e.g., proxmox"
                     className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
