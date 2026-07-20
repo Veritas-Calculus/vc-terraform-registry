@@ -11,38 +11,38 @@ function ProviderDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+
+        // Load settings for registry URL
+        try {
+          const settings = await fetchSettings();
+          setRegistryUrl(settings.registry_url || window.location.host);
+        } catch {
+          setRegistryUrl(window.location.host);
+        }
+
+        // Load all versions for this provider
+        try {
+          const versionsData = await fetchProviderVersions(namespace, name);
+          setVersions(versionsData.versions || []);
+        } catch {
+          setVersions([]);
+        }
+
+        // Load specific version or latest
+        const data = await fetchProvider(namespace, name, version);
+        setProvider(data);
+      } catch (error) {
+        console.error('Failed to load provider:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadData();
   }, [namespace, name, version]);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      
-      // Load settings for registry URL
-      try {
-        const settings = await fetchSettings();
-        setRegistryUrl(settings.registry_url || window.location.host);
-      } catch {
-        setRegistryUrl(window.location.host);
-      }
-      
-      // Load all versions for this provider
-      try {
-        const versionsData = await fetchProviderVersions(namespace, name);
-        setVersions(versionsData.versions || []);
-      } catch {
-        setVersions([]);
-      }
-      
-      // Load specific version or latest
-      const data = await fetchProvider(namespace, name, version);
-      setProvider(data);
-    } catch (error) {
-      console.error('Failed to load provider:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleVersionChange = (newVersion) => {
     navigate(`/providers/${namespace}/${name}/${newVersion}`);

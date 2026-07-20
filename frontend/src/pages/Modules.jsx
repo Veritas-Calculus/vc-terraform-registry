@@ -10,21 +10,21 @@ function Modules() {
   const [total, setTotal] = useState(0);
 
   useEffect(() => {
+    const loadModules = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchModules({ page, limit: 20 });
+        setModules(data.modules);
+        setTotal(data.total);
+      } catch (error) {
+        console.error('Failed to load modules:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadModules();
   }, [page]);
-
-  const loadModules = async () => {
-    try {
-      setLoading(true);
-      const data = await fetchModules({ page, limit: 20 });
-      setModules(data.modules);
-      setTotal(data.total);
-    } catch (error) {
-      console.error('Failed to load modules:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

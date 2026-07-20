@@ -10,30 +10,38 @@ export default function SettingsPanel({ onMessage }) {
     proxy_type: 'http'
   });
 
+  const [prevSettings, setPrevSettings] = useState(null);
+
   useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchSettings();
+        setSettings(data);
+      } catch (err) {
+        onMessage({ type: 'error', text: 'Failed to load settings: ' + err.message });
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadSettings();
   }, []);
 
-  useEffect(() => {
-    if (settings) {
-      setProxyForm({
-        proxy_url: settings.proxy_url || '',
-        proxy_type: settings.proxy_type || 'http'
-      });
-    }
-  }, [settings]);
-
-  const loadSettings = async () => {
-    try {
-      setLoading(true);
-      const data = await fetchSettings();
-      setSettings(data);
-    } catch (err) {
-      onMessage({ type: 'error', text: 'Failed to load settings: ' + err.message });
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Resync the editable proxy form whenever a new settings object arrives.
+  // This runs during render (not in an effect) so the form is populated in the
+  // same commit that reveals the panel, avoiding a cascading render.
+  //
+  // The prevSettings sentinel and the `if` guard are REQUIRED, not boilerplate:
+  // react-hooks/set-state-in-render rejects an unguarded setState during render.
+  // Do not "simplify" this into a bare setProxyForm call or a useRef.
+  if (settings && settings !== prevSettings) {
+    setPrevSettings(settings);
+    setProxyForm({
+      proxy_url: settings.proxy_url || '',
+      proxy_type: settings.proxy_type || 'http'
+    });
+  }
 
   const handleToggleOnlineSearch = async () => {
     if (!settings) return;

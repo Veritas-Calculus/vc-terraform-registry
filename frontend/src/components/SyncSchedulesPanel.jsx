@@ -33,9 +33,24 @@ export default function SyncSchedulesPanel({ onMessage }) {
     }
   }, [onMessage]);
 
+  // Initial load. The fetch is inlined here rather than reusing loadSchedules
+  // because react-hooks/set-state-in-effect inlines any const/useCallback-bound
+  // function called from an effect and flags its synchronous setLoading(true).
+  // That call is a no-op on mount anyway (`loading` already starts true).
   useEffect(() => {
-    loadSchedules();
-  }, [loadSchedules]);
+    const loadInitial = async () => {
+      try {
+        const data = await fetchSyncSchedules();
+        setSchedules(data.schedules || []);
+      } catch (err) {
+        onMessage({ type: 'error', text: 'Failed to load schedules: ' + err.message });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadInitial();
+  }, [onMessage]);
 
   const resetForm = () => {
     setForm({
