@@ -10,8 +10,8 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
   // Starts true only when a stored token still needs validating; every exit path
-  // of fetchCurrentUser clears it in its `finally`. Must stay in sync with the
-  // token effect below -- see the comment there.
+  // of the token effect's fetchCurrentUser clears it in its `finally`. Must stay
+  // in sync with that effect -- see the comment there.
   const [loading, setLoading] = useState(!!token);
   const [authEnabled, setAuthEnabled] = useState(true);
 
@@ -19,13 +19,60 @@ export function AuthProvider({ children }) {
     checkAuthStatus();
   }, []);
 
-  // No else-branch: with no token, `loading` was already initialised to false
-  // above. Reverting that initialiser without restoring this branch would strand
-  // signed-out users at loading === true forever, hiding the Sign In button.
+  // Early return, no else-branch: with no token, `loading` was already initialised
+  // to false above. Reverting that initialiser without restoring an else-branch
+  // would strand signed-out users at loading === true forever, hiding the Sign In
+  // button (Layout gates the whole auth UI on !loading).
+  //
+  // fetchCurrentUser lives INSIDE the effect deliberately. Hoisting it back to
+  // component scope makes exhaustive-deps demand it as a dep, and it is recreated
+  // every render, so [token, fetchCurrentUser] would refetch /auth/me forever.
+  // Deps stay [token] alone because logout() closes over nothing reactive (just
+  // localStorage plus the stable setToken/setUser). If logout ever reads reactive
+  // state, exhaustive-deps will start demanding it here -- add it, do not suppress.
   useEffect(() => {
-    if (token) {
-      fetchCurrentUser();
+    if (!token) return;
+
+    // Guards against a superseded response landing on a newer session: without
+    // it, a late 401 for an old token calls logout() over a session the user has
+    // since signed into (/login is a top-level route outside Layout's !loading
+    // gate, so that sequence is reachable), and a late 200 calls setUser() after
+    // a logout, showing a signed-in UI with no token.
+    let ignore = false;
+
+    async function fetchCurrentUser() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (!ignore) setUser(data.user);
+        } else if (!ignore) {
+          // Token is invalid, clear it
+          logout();
+        }
+      } catch (err) {
+        console.error('Failed to fetch user:', err);
+        if (!ignore) logout();
+      } finally {
+        // Unconditional on purpose. Guarding this with !ignore strands the user
+        // at loading === true whenever the token clears mid-flight: the re-run
+        // early-returns on the null token, so nothing else would ever clear it,
+        // and Layout hides the whole auth block -- including Sign In -- while
+        // loading is true.
+        setLoading(false);
+      }
     }
+
+    fetchCurrentUser();
+
+    return () => {
+      ignore = true;
+    };
   }, [token]);
 
   async function checkAuthStatus() {
@@ -35,29 +82,6 @@ export function AuthProvider({ children }) {
       setAuthEnabled(data.auth_enabled);
     } catch (err) {
       console.error('Failed to check auth status:', err);
-    }
-  }
-
-  async function fetchCurrentUser() {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-      } else {
-        // Token is invalid, clear it
-        logout();
-      }
-    } catch (err) {
-      console.error('Failed to fetch user:', err);
-      logout();
-    } finally {
-      setLoading(false);
     }
   }
 
