@@ -33,6 +33,13 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!token) return;
 
+    // Guards against a superseded response landing on a newer session: without
+    // it, a late 401 for an old token calls logout() over a session the user has
+    // since signed into (/login is a top-level route outside Layout's !loading
+    // gate, so that sequence is reachable), and a late 200 calls setUser() after
+    // a logout, showing a signed-in UI with no token.
+    let ignore = false;
+
     async function fetchCurrentUser() {
       try {
         const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
@@ -43,20 +50,29 @@ export function AuthProvider({ children }) {
 
         if (response.ok) {
           const data = await response.json();
-          setUser(data.user);
-        } else {
+          if (!ignore) setUser(data.user);
+        } else if (!ignore) {
           // Token is invalid, clear it
           logout();
         }
       } catch (err) {
         console.error('Failed to fetch user:', err);
-        logout();
+        if (!ignore) logout();
       } finally {
+        // Unconditional on purpose. Guarding this with !ignore strands the user
+        // at loading === true whenever the token clears mid-flight: the re-run
+        // early-returns on the null token, so nothing else would ever clear it,
+        // and Layout hides the whole auth block -- including Sign In -- while
+        // loading is true.
         setLoading(false);
       }
     }
 
     fetchCurrentUser();
+
+    return () => {
+      ignore = true;
+    };
   }, [token]);
 
   async function checkAuthStatus() {
