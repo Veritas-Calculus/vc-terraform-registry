@@ -1,9 +1,9 @@
-# Makefile for VC Terraform Registry
+# Makefile for Veritas Registry
 
 .PHONY: help build start stop restart logs clean dev-start dev-stop test
 
 help:
-	@echo "VC Terraform Registry - Make commands"
+	@echo "Veritas Registry - Make commands"
 	@echo ""
 	@echo "Usage:"
 	@echo "  make build       Build Docker images"
@@ -18,59 +18,59 @@ help:
 	@echo ""
 
 build:
-	@echo "🔨 Building Docker images..."
-	docker-compose build
+	@echo "Building Docker images..."
+	docker compose build
 
 start:
-	@echo "🚀 Starting VC Terraform Registry..."
-	docker-compose up -d
-	@echo "✅ Services started!"
-	@echo "   Backend: http://localhost:8080"
-	@echo "   Frontend: http://localhost:3000"
+	@echo "Starting Veritas Registry..."
+	docker compose up -d
+	@echo "Services started."
+	@echo "  Backend: http://127.0.0.1:8080"
+	@echo "  Frontend: http://localhost:3000 (HTTPS: https://localhost:3443)"
 
 stop:
-	@echo "🛑 Stopping services..."
-	docker-compose down
+	@echo "Stopping services..."
+	docker compose down
 
 restart: stop start
 
 logs:
-	docker-compose logs -f
+	docker compose logs -f
 
 clean:
-	@echo "🧹 Cleaning up..."
-	docker-compose down -v
+	@echo "Cleaning up..."
+	docker compose down -v
 	docker system prune -f
 
 dev-start:
-	@echo "🚀 Starting development environment..."
-	docker-compose -f docker-compose.dev.yml up
+	@echo "Starting development environment..."
+	docker compose -f docker-compose.dev.yml up
 
 dev-stop:
-	@echo "🛑 Stopping development environment..."
-	docker-compose -f docker-compose.dev.yml down
+	@echo "Stopping development environment..."
+	docker compose -f docker-compose.dev.yml down
 
 test:
-	@echo "🧪 Running backend tests..."
+	@echo "Running backend tests..."
 	cd backend && go test ./...
-	@echo "✅ Tests passed!"
+	@echo "Tests passed."
 
 backend-build:
-	@echo "🔨 Building backend..."
+	@echo "Building backend..."
 	cd backend && go build -o bin/server ./cmd/server
 
 backend-run:
-	@echo "🚀 Running backend..."
+	@echo "Running backend..."
 	cd backend && ./bin/server
 
 frontend-install:
-	@echo "📦 Installing frontend dependencies..."
+	@echo "Installing frontend dependencies..."
 	cd frontend && npm install
 
 frontend-build:
-	@echo "🔨 Building frontend..."
+	@echo "Building frontend..."
 	cd frontend && npm run build
 
 frontend-dev:
-	@echo "🚀 Running frontend dev server..."
+	@echo "Running frontend dev server..."
 	cd frontend && npm run dev
