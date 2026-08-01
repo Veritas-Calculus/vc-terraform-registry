@@ -1,16 +1,34 @@
-# React + Vite
+# Veritas Registry - Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The web UI for Veritas Registry, built with React 19, Vite 8, Tailwind CSS 4, and
+React Router 8.
 
-Currently, two official plugins are available:
+## Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+```bash
+npm install
+npm run dev      # start the Vite dev server (http://localhost:5173)
+npm run lint     # run ESLint
+npm run build    # production build into dist/
+npm run preview  # preview the production build
+```
 
-## React Compiler
+The dev server expects the backend API. Set `VITE_API_BASE_URL` to point at it
+(defaults to `http://localhost:8080`). `VITE_REGISTRY_HOST` overrides the host
+shown in generated Terraform CLI snippets (defaults to the current page host).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Project layout
 
-## Expanding the ESLint configuration
+```
+src/
+  components/   shared components (layout, search, panels)
+  contexts/     React contexts (authentication)
+  pages/        route pages (home, providers, modules, mirror, docs, login)
+  services/     API client
+public/
+  brand/        logo assets (mark.svg, icon.svg)
+  favicon.svg   browser tab icon
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+See the repository [README](../README.md) and [docs](../docs) for deployment and
+configuration.
