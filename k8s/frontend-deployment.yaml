@@ -23,6 +23,10 @@ spec:
         app.kubernetes.io/name: terraform-registry
         app.kubernetes.io/component: frontend
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
       containers:
         - name: frontend
           image: ghcr.io/veritas-calculus/vc-terraform-registry-frontend:latest
@@ -56,5 +60,9 @@ spec:
             failureThreshold: 3
           securityContext:
             allowPrivilegeEscalation: false
+            # Full non-root (runAsNonRoot + drop ALL caps + readOnlyRootFilesystem)
+            # requires the unprivileged nginx image, since the stock nginx master
+            # needs its default capabilities to drop workers to the nginx user.
+            # Tracked in docs/SECURITY-HARDENING.md.
             readOnlyRootFilesystem: false
             runAsNonRoot: false

@@ -4,15 +4,24 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: vc-registry-backend
+    # Bound to localhost only: the frontend reaches the backend over the internal
+    # Docker network (http://backend:8080), so the API must not be published in
+    # cleartext on all host interfaces. Use 127.0.0.1 for direct API/health access.
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       - SERVER_PORT=8080
       - SERVER_HOST=0.0.0.0
+      - SERVER_MODE=release
       - DATABASE_URL=sqlite:/data/registry.db
       - STORAGE_PATH=/data/registry
       - AUTH_ENABLED=true
-      - AUTH_SECRETKEY=dev-secret-key-change-in-production
+      # Supplied from .env; compose aborts if unset. Generate: openssl rand -base64 32
+      - AUTH_SECRETKEY=${AUTH_SECRETKEY:?set AUTH_SECRETKEY in .env (openssl rand -base64 32)}
+      # Initial admin password. If omitted, the backend generates a random one
+      # and prints it once at first boot; set it here to choose your own.
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-*}
       - LOG_LEVEL=info
     volumes:
       - registry-data:/data
