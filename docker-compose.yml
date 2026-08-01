@@ -18,9 +18,9 @@ services:
       - AUTH_ENABLED=true
       # Supplied from .env; compose aborts if unset. Generate: openssl rand -base64 32
       - AUTH_SECRETKEY=${AUTH_SECRETKEY:?set AUTH_SECRETKEY in .env (openssl rand -base64 32)}
-      # Initial admin password. If omitted, the backend generates a random one
-      # and prints it once at first boot; set it here to choose your own.
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      # Initial admin password, required on first boot because auth is enabled.
+      # Generate: openssl rand -base64 24
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env (openssl rand -base64 24)}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-*}
       - LOG_LEVEL=info
     volumes:

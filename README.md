@@ -27,17 +27,18 @@ git clone https://github.com/Veritas-Calculus/vc-terraform-registry.git
 cd vc-terraform-registry
 
 cp .env.example .env
-# Edit .env and set a strong AUTH_SECRETKEY: openssl rand -base64 32
-# The server refuses to start in release mode without one.
+# Edit .env and set two required secrets before first boot:
+#   AUTH_SECRETKEY  (openssl rand -base64 32) - JWT signing key
+#   ADMIN_PASSWORD  (openssl rand -base64 24) - initial admin password
+# The server refuses to start in release mode without a strong signing key,
+# and refuses to create the admin account without ADMIN_PASSWORD.
 
 docker compose up -d
 ```
 
 Then open `https://localhost:3443` (self-signed certificate; accept the warning).
-The Terraform CLI requires HTTPS, so use the 3443 port.
-
-On first boot, if you did not set `ADMIN_PASSWORD`, the backend generates a random
-admin password and prints it once in the logs (`docker compose logs backend`).
+The Terraform CLI requires HTTPS, so use the 3443 port. Sign in as `admin` with
+the `ADMIN_PASSWORD` you set.
 
 Ports: frontend HTTPS `3443`, frontend HTTP `3000`, backend API `127.0.0.1:8080`.
 

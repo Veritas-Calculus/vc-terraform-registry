@@ -6,7 +6,8 @@ Ensure Docker is running, then:
 
 ```bash
 cp .env.example .env
-# Set a strong AUTH_SECRETKEY (openssl rand -base64 32). Optionally set ADMIN_PASSWORD.
+# Set a strong AUTH_SECRETKEY (openssl rand -base64 32) and an ADMIN_PASSWORD
+# (openssl rand -base64 24). Both are required on first boot.
 
 # Using make
 make start
