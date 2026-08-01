@@ -1,0 +1,9 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Veritas Registry">
+  <!-- Graphite squircle tile -->
+  <rect width="64" height="64" rx="15" fill="#0F1B2D"/>
+  <!-- Registry shelf: stacked artifact rows -->
+  <path d="M17 45h27" stroke="#4C86FF" stroke-width="4.5" stroke-linecap="round" opacity="0.42"/>
+  <path d="M17 52h17" stroke="#4C86FF" stroke-width="4.5" stroke-linecap="round" opacity="0.42"/>
+  <!-- Veritas check / V -->
+  <path d="M14 28 L27 41 L50 15" stroke="#4C86FF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

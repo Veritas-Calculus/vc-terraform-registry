@@ -812,7 +812,7 @@ export default function Mirror() {
           <div className="bg-white rounded-2xl border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Import Provider Package</h3>
             <p className="text-gray-500 mb-6">
-              Import a provider package that was exported from another VC Terraform Registry instance.
+              Import a provider package that was exported from another Veritas Registry instance.
             </p>
             
             <form onSubmit={handleImport} className="space-y-4">
