@@ -21,7 +21,13 @@ spec:
         app.kubernetes.io/component: backend
     spec:
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
         fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
       containers:
         - name: backend
           image: ghcr.io/veritas-calculus/vc-terraform-registry-backend:latest
@@ -39,9 +45,17 @@ spec:
                 secretKeyRef:
                   name: terraform-registry-secret
                   key: AUTH_SECRETKEY
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: terraform-registry-secret
+                  key: ADMIN_PASSWORD
+                  optional: true
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 100m
@@ -67,9 +81,14 @@ spec:
             failureThreshold: 3
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
-            runAsNonRoot: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: terraform-registry-data
+        - name: tmp
+          emptyDir: {}
