@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Veritas-Calculus/vc-terraform-registry/internal/logsafe"
@@ -67,10 +68,23 @@ func validatePlatform(os, arch string) (string, string) {
 // ProviderMirrorHandler handles Terraform Provider Mirror Protocol requests.
 // This implements the protocol defined at:
 // https://developer.hashicorp.com/terraform/internals/provider-network-mirror-protocol
+// maxConcurrentBackgroundCaches bounds how many upstream provider downloads may
+// run at once from the unauthenticated mirror-protocol routes. Without a cap, an
+// anonymous client can fan out one background download per requested
+// provider/version and exhaust disk and bandwidth (amplification DoS).
+const maxConcurrentBackgroundCaches = 3
+
 type ProviderMirrorHandler struct {
 	db           *gorm.DB
 	storagePath  string
 	proxyService *proxy.ProxyService
+
+	// cacheSem caps concurrent background caches; a non-blocking acquire means a
+	// burst of requests degrades to "cached on a later request" instead of
+	// spawning unbounded goroutines.
+	cacheSem chan struct{}
+	// inflight dedupes concurrent caches of the same namespace/name/version.
+	inflight sync.Map
 }
 
 // NewProviderMirrorHandler creates a new ProviderMirrorHandler instance.
@@ -79,9 +93,34 @@ func NewProviderMirrorHandler(db *gorm.DB, storagePath string) *ProviderMirrorHa
 		db:           db,
 		storagePath:  storagePath,
 		proxyService: proxy.NewProxyService(storagePath, ""),
+		cacheSem:     make(chan struct{}, maxConcurrentBackgroundCaches),
 	}
 	h.refreshProxySettings()
 	return h
+}
+
+// tryStartBackgroundCache launches asyncCacheProvider only if a concurrency slot
+// is free and no identical cache is already running. It never blocks the request
+// goroutine. Returns true when a background cache was started.
+func (h *ProviderMirrorHandler) tryStartBackgroundCache(namespace, name, version string, platforms []proxy.Platform) bool {
+	key := namespace + "/" + name + "/" + version
+	if _, loaded := h.inflight.LoadOrStore(key, struct{}{}); loaded {
+		return false // an identical cache is already in flight
+	}
+	select {
+	case h.cacheSem <- struct{}{}:
+	default:
+		h.inflight.Delete(key)
+		return false // all slots busy; skip, a later request will retry
+	}
+	go func() {
+		defer func() {
+			<-h.cacheSem
+			h.inflight.Delete(key)
+		}()
+		h.asyncCacheProvider(namespace, name, version, platforms)
+	}()
+	return true
 }
 
 // refreshProxySettings loads proxy settings from database and updates the proxy service.
@@ -260,9 +299,11 @@ func (h *ProviderMirrorHandler) GetVersionArchives(c *gin.Context) {
 			archives[key] = archive
 		}
 
-		// Trigger async caching if we don't have all platforms locally
+		// Trigger bounded async caching if we don't have all platforms locally.
+		// The launcher caps concurrency and dedupes in-flight downloads so these
+		// unauthenticated routes cannot be used to amplify disk/bandwidth usage.
 		if len(localPlatforms) < len(upstreamPlatforms) {
-			go h.asyncCacheProvider(namespace, name, version, upstreamPlatforms)
+			h.tryStartBackgroundCache(namespace, name, version, upstreamPlatforms)
 		}
 	} else {
 		// No upstream, use local platforms only

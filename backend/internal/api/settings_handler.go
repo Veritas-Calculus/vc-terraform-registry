@@ -3,11 +3,28 @@ package api
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/Veritas-Calculus/vc-terraform-registry/internal/models"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
+
+// redactURLCredentials removes any embedded userinfo (user:password@) from a
+// URL so it can be returned to unauthenticated callers without leaking the
+// outbound proxy's credentials. Values that do not parse as a URL are returned
+// unchanged (they carry no userinfo to leak).
+func redactURLCredentials(raw string) string {
+	if raw == "" {
+		return raw
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.User == nil {
+		return raw
+	}
+	u.User = nil
+	return u.String()
+}
 
 // SettingsHandler handles settings-related HTTP requests.
 type SettingsHandler struct {
@@ -56,12 +73,14 @@ func (h *SettingsHandler) GetSettings(c *gin.Context) {
 		}
 	}
 
+	// This endpoint is public, so never return credentials embedded in the
+	// proxy URL. The admin edit form re-enters credentials when changing them.
 	c.JSON(http.StatusOK, SettingsResponse{
 		AllowOnlineSearch:  settings.AllowOnlineSearch,
 		DefaultUpstreamURL: settings.DefaultUpstreamURL,
 		RegistryURL:        settings.RegistryURL,
 		ProxyEnabled:       settings.ProxyEnabled,
-		ProxyURL:           settings.ProxyURL,
+		ProxyURL:           redactURLCredentials(settings.ProxyURL),
 		ProxyType:          settings.ProxyType,
 	})
 }

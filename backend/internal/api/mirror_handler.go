@@ -217,13 +217,11 @@ func (h *MirrorHandler) MirrorProviderWithProgress(c *gin.Context) {
 	version := c.Query("version")
 	osType := c.DefaultQuery("os", "all")
 	arch := c.DefaultQuery("arch", "all")
-	proxyURL := c.Query("proxy_url")
 
 	// Set SSE headers
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
-	c.Header("Access-Control-Allow-Origin", "*")
 
 	sendProgress := func(p MirrorProgress) {
 		data, _ := json.Marshal(p)
@@ -236,11 +234,11 @@ func (h *MirrorHandler) MirrorProviderWithProgress(c *gin.Context) {
 		return
 	}
 
-	// Create proxy service
-	proxyService := h.getProxyService(proxyURL)
-	if proxyURL != "" {
-		sendProgress(MirrorProgress{Type: "progress", Message: fmt.Sprintf("Using proxy: %s", proxyURL)})
-	}
+	// Always use the server-configured proxy. A client-supplied proxy would let
+	// the caller point the server's outbound fetch at an arbitrary host (SSRF)
+	// or a proxy that MITMs the provider download, so it is not accepted.
+	h.refreshProxySettings()
+	proxyService := h.proxyService
 
 	// Get platforms to mirror
 	sendProgress(MirrorProgress{Type: "progress", Message: "Fetching version information..."})
@@ -275,14 +273,6 @@ func (h *MirrorHandler) MirrorProviderWithProgress(c *gin.Context) {
 		Percent: 100,
 		Message: fmt.Sprintf("Successfully mirrored %d platforms (%.2f MB total)", len(mirroredPlatforms), float64(totalBytes)/1024/1024),
 	})
-}
-
-// getProxyService returns the appropriate proxy service based on proxyURL.
-func (h *MirrorHandler) getProxyService(proxyURL string) *proxy.ProxyService {
-	if proxyURL != "" {
-		return proxy.NewProxyServiceWithProxy(h.storagePath, "", proxyURL, "http")
-	}
-	return h.proxyService
 }
 
 // fetchPlatformsToMirror fetches version info and returns platforms to download.
@@ -525,7 +515,13 @@ func (h *MirrorHandler) DownloadProvider(c *gin.Context) {
 	// Increment download counter
 	h.db.Model(&provider).Update("downloads", gorm.Expr("downloads + 1"))
 
-	// Serve the file
+	// Serve the archive as a download, never inline. Provider files carry
+	// attacker-influenced names/contents and are served from the SPA origin, so
+	// force a binary content type, disable MIME sniffing, and set an attachment
+	// disposition to prevent the browser from rendering a crafted file as HTML.
+	c.Header("Content-Type", "application/octet-stream")
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("Content-Disposition", "attachment; filename=\""+filepath.Base(platform.FilePath)+"\"")
 	c.File(platform.FilePath)
 }
 
@@ -789,6 +785,7 @@ type MirroredProviderSummary struct {
 func (h *MirrorHandler) ListMirroredProviders(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	page, limit = clampPagination(page, limit)
 	offset := (page - 1) * limit
 
 	// Query to get unique providers grouped by namespace/name
