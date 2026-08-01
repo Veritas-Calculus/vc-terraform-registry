@@ -15,7 +15,7 @@ Environment variables take precedence.
 | `DATABASE_URL` | Database connection string | `sqlite:///data/registry.db` |
 | `AUTH_ENABLED` | Enable authentication | `true` |
 | `AUTH_SECRETKEY` | JWT signing key. Required in release mode; must be a strong random value of at least 32 bytes | none |
-| `ADMIN_PASSWORD` | Initial admin password. If unset, a random one is generated and printed once at first boot | none |
+| `ADMIN_PASSWORD` | Initial admin password. Required on first boot when `AUTH_ENABLED=true`; the server will not seed a well-known password or log a generated one | none |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated allowed browser origins, or `*` for any | `*` |
 | `LOG_LEVEL` | Log level | `info` |
 

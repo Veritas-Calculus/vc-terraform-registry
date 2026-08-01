@@ -26,17 +26,17 @@ git clone https://github.com/Veritas-Calculus/vc-terraform-registry.git
 cd vc-terraform-registry
 
 cp .env.example .env
-# 编辑 .env，设置强随机 AUTH_SECRETKEY：openssl rand -base64 32
-# release 模式下缺少该密钥服务将拒绝启动。
+# 首次启动前在 .env 中设置两个必填密钥：
+#   AUTH_SECRETKEY  (openssl rand -base64 32) - JWT 签名密钥
+#   ADMIN_PASSWORD  (openssl rand -base64 24) - 初始管理员密码
+# release 模式下缺少强签名密钥服务将拒绝启动；未设置 ADMIN_PASSWORD 时拒绝创建管理员账号。
 
 docker compose up -d
 ```
 
 随后访问 `https://localhost:3443`（自签名证书，需要在浏览器中接受安全警告）。
-Terraform CLI 要求使用 HTTPS，请使用 3443 端口。
-
-首次启动时，若未设置 `ADMIN_PASSWORD`，后端会生成随机管理员密码并在日志中打印一次
-（`docker compose logs backend`）。
+Terraform CLI 要求使用 HTTPS，请使用 3443 端口。使用用户名 `admin` 和你设置的
+`ADMIN_PASSWORD` 登录。
 
 端口：前端 HTTPS `3443`、前端 HTTP `3000`、后端 API `127.0.0.1:8080`。
 

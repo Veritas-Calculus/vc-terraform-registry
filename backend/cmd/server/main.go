@@ -141,39 +141,36 @@ func initDatabase(cfg *config.Config) (*gorm.DB, error) {
 	db.Model(&models.User{}).Count(&userCount)
 	if userCount == 0 {
 		adminPassword := os.Getenv("ADMIN_PASSWORD")
-		generated := false
 		if adminPassword == "" {
-			// Never fall back to a well-known password. Generate a strong random
-			// one and surface it once in the logs so the operator can capture it.
+			if cfg.Auth.Enabled {
+				// Fail closed rather than seed a well-known password or log a
+				// generated one (logging a secret is itself a leak). The operator
+				// must choose the initial admin password explicitly.
+				return nil, fmt.Errorf(
+					"ADMIN_PASSWORD is not set; set it to create the initial admin account " +
+						"(e.g. `openssl rand -base64 24`)")
+			}
+			// Authentication is disabled (development): the admin credential gates
+			// nothing, so seed a random password that is never logged.
 			adminPassword, err = generatePassword(24)
 			if err != nil {
 				return nil, fmt.Errorf("failed to generate admin password: %w", err)
 			}
-			generated = true
 		}
 		hashedPassword, err := auth.HashPassword(adminPassword)
 		if err != nil {
-			log.Printf("Warning: failed to hash admin password: %v", err)
-		} else {
-			adminUser := models.User{
-				Username: "admin",
-				Email:    "admin@localhost",
-				Password: hashedPassword,
-				Role:     "admin",
-			}
-			if err := db.Create(&adminUser).Error; err != nil {
-				log.Printf("Warning: failed to create admin user: %v", err)
-			} else if generated {
-				log.Printf("=====================================================================")
-				log.Printf("  Initial admin account created. Username: admin")
-				log.Printf("  Generated password: %s", adminPassword)
-				log.Printf("  Store it now and change it after first login. It is shown only once.")
-				log.Printf("  Set ADMIN_PASSWORD to choose your own on first boot.")
-				log.Printf("=====================================================================")
-			} else {
-				log.Printf("Initial admin user created (username: admin) from ADMIN_PASSWORD")
-			}
+			return nil, fmt.Errorf("failed to hash admin password: %w", err)
 		}
+		adminUser := models.User{
+			Username: "admin",
+			Email:    "admin@localhost",
+			Password: hashedPassword,
+			Role:     "admin",
+		}
+		if err := db.Create(&adminUser).Error; err != nil {
+			return nil, fmt.Errorf("failed to create admin user: %w", err)
+		}
+		log.Printf("Initial admin user 'admin' created")
 	}
 
 	log.Printf("Database initialized: %s", dbPath)
