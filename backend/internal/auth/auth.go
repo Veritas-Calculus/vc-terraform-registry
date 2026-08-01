@@ -62,6 +62,9 @@ func (m *JWTManager) Verify(tokenString string) (*Claims, error) {
 		func(token *jwt.Token) (interface{}, error) {
 			return []byte(m.secretKey), nil
 		},
+		// Pin the signing algorithm to HS256. Without this a token could assert
+		// its own algorithm ("alg" header), enabling algorithm-confusion attacks.
+		jwt.WithValidMethods([]string{"HS256"}),
 	)
 
 	if err != nil {
@@ -70,6 +73,12 @@ func (m *JWTManager) Verify(tokenString string) (*Claims, error) {
 
 	claims, ok := token.Claims.(*Claims)
 	if !ok || !token.Valid {
+		return nil, ErrInvalidToken
+	}
+
+	// A token with no exp claim leaves ExpiresAt nil; treat it as invalid rather
+	// than dereferencing it (which would panic) or accepting a non-expiring token.
+	if claims.ExpiresAt == nil {
 		return nil, ErrInvalidToken
 	}
 

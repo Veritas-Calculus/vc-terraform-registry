@@ -2,29 +2,22 @@
 package api
 
 import (
+	"net/http"
+	"time"
+
 	"github.com/Veritas-Calculus/vc-terraform-registry/internal/auth"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 // SetupRouter configures and returns the HTTP router.
-func SetupRouter(db *gorm.DB, jwtManager *auth.JWTManager, authEnabled bool, storagePath string) *gin.Engine {
-	router := gin.Default()
+func SetupRouter(db *gorm.DB, jwtManager *auth.JWTManager, authEnabled bool, storagePath string, corsAllowedOrigins []string) *gin.Engine {
+	// Build the engine explicitly so the access log never records the JWTs that
+	// SSE and export endpoints pass in the query string.
+	router := gin.New()
+	router.Use(redactingLogger(), gin.Recovery())
 
-	// CORS middleware
-	router.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-
-		c.Next()
-	})
+	router.Use(corsMiddleware(corsAllowedOrigins))
 
 	handler := NewHandler(db)
 	mirrorHandler := NewMirrorHandler(db, storagePath)
@@ -54,8 +47,10 @@ func SetupRouter(db *gorm.DB, jwtManager *auth.JWTManager, authEnabled bool, sto
 	router.GET("/v1/providers/:namespace/:name/:version/download/:os/:arch", mirrorHandler.GetProviderDownloadInfo)
 	router.GET("/v1/providers/:namespace/:name/:version/download/:os/:arch/binary", mirrorHandler.DownloadProvider)
 
-	// Auth routes (always public)
-	router.POST("/api/v1/auth/login", authHandler.Login)
+	// Auth routes (always public). Login is rate limited per client IP to stop
+	// unbounded online password guessing and bcrypt CPU exhaustion.
+	loginLimiter := newRateLimiter(10, time.Minute)
+	router.POST("/api/v1/auth/login", rateLimitMiddleware(loginLimiter, time.Now), authHandler.Login)
 	router.GET("/api/v1/auth/status", func(c *gin.Context) {
 		c.JSON(200, gin.H{"auth_enabled": authEnabled})
 	})
@@ -72,37 +67,85 @@ func SetupRouter(db *gorm.DB, jwtManager *auth.JWTManager, authEnabled bool, sto
 	router.GET("/api/v1/settings", settingsHandler.GetSettings)
 	router.GET("/api/v1/sync/schedules", syncHandler.ListSchedules)
 
-	// Protected routes (auth required for write operations)
-	authorized := router.Group("/api/v1")
-	authorized.Use(auth.AuthMiddleware(jwtManager))
+	// Authenticated routes: any valid token. /auth/me only exposes the caller's
+	// own identity, so it does not need an elevated role.
+	authenticated := router.Group("/api/v1")
+	authenticated.Use(auth.AuthMiddleware(jwtManager))
 	{
-		// Auth
-		authorized.GET("/auth/me", authHandler.GetCurrentUser)
+		authenticated.GET("/auth/me", authHandler.GetCurrentUser)
+	}
 
-		// Provider management (requires auth)
-		authorized.POST("/providers", handler.CreateProvider)
-		authorized.POST("/providers/upload", mirrorHandler.UploadProvider)
-		authorized.DELETE("/providers/:id", mirrorHandler.DeleteProvider)
+	// Admin routes: valid token AND the admin role. Every state-changing
+	// management operation lives here. Without the RequireRole gate the role
+	// claim was decorative and any authenticated principal was fully privileged.
+	admin := router.Group("/api/v1")
+	admin.Use(auth.AuthMiddleware(jwtManager), auth.RequireRole("admin"))
+	{
+		// Provider management
+		admin.POST("/providers", handler.CreateProvider)
+		admin.POST("/providers/upload", mirrorHandler.UploadProvider)
+		admin.DELETE("/providers/:id", mirrorHandler.DeleteProvider)
 
-		// Mirror operations (requires auth)
-		authorized.GET("/mirror/upstream/:namespace/:name", mirrorHandler.ListUpstreamVersions)
-		authorized.POST("/mirror/:namespace/:name", mirrorHandler.MirrorProvider)
-		authorized.GET("/mirror/:namespace/:name/stream", mirrorHandler.MirrorProviderWithProgress)
-		authorized.GET("/mirror/export/:id", mirrorHandler.ExportProvider)
-		authorized.POST("/mirror/import", mirrorHandler.ImportProvider)
+		// Mirror operations
+		admin.GET("/mirror/upstream/:namespace/:name", mirrorHandler.ListUpstreamVersions)
+		admin.POST("/mirror/:namespace/:name", mirrorHandler.MirrorProvider)
+		admin.GET("/mirror/:namespace/:name/stream", mirrorHandler.MirrorProviderWithProgress)
+		admin.GET("/mirror/export/:id", mirrorHandler.ExportProvider)
+		admin.POST("/mirror/import", mirrorHandler.ImportProvider)
 
-		// Settings (requires auth)
-		authorized.PUT("/settings", settingsHandler.UpdateSettings)
+		// Settings
+		admin.PUT("/settings", settingsHandler.UpdateSettings)
 
-		// Sync schedules (requires auth)
-		authorized.POST("/sync/schedules", syncHandler.CreateSchedule)
-		authorized.PUT("/sync/schedules/:id", syncHandler.UpdateSchedule)
-		authorized.DELETE("/sync/schedules/:id", syncHandler.DeleteSchedule)
-		authorized.POST("/sync/schedules/:id/run", syncHandler.RunScheduleNow)
+		// Sync schedules
+		admin.POST("/sync/schedules", syncHandler.CreateSchedule)
+		admin.PUT("/sync/schedules/:id", syncHandler.UpdateSchedule)
+		admin.DELETE("/sync/schedules/:id", syncHandler.DeleteSchedule)
+		admin.POST("/sync/schedules/:id/run", syncHandler.RunScheduleNow)
 
 		// Module management
-		authorized.POST("/modules", handler.CreateProvider)
+		admin.POST("/modules", handler.CreateProvider)
 	}
 
 	return router
+}
+
+// corsMiddleware returns a CORS handler.
+//
+// The API authenticates with a Bearer token in the Authorization header, not
+// cookies, so it never needs Access-Control-Allow-Credentials. Emitting that
+// header alongside a wildcard origin is both a spec violation (browsers reject
+// it) and a latent misconfiguration, so this handler never sets it.
+//
+//   - allowedOrigins == ["*"] (default): any origin is allowed, no credentials.
+//   - explicit list: the request Origin is echoed only when it matches, and
+//     Vary: Origin is set so caches key on the origin.
+func corsMiddleware(allowedOrigins []string) gin.HandlerFunc {
+	allowAny := len(allowedOrigins) == 0 || (len(allowedOrigins) == 1 && allowedOrigins[0] == "*")
+	allowed := make(map[string]struct{}, len(allowedOrigins))
+	for _, o := range allowedOrigins {
+		allowed[o] = struct{}{}
+	}
+
+	return func(c *gin.Context) {
+		origin := c.Request.Header.Get("Origin")
+
+		if allowAny {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		} else if origin != "" {
+			if _, ok := allowed[origin]; ok {
+				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+			}
+			c.Writer.Header().Add("Vary", "Origin")
+		}
+
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		c.Next()
+	}
 }

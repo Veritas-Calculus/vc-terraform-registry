@@ -2,11 +2,14 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -15,6 +18,7 @@ import (
 	"github.com/Veritas-Calculus/vc-terraform-registry/internal/models"
 	"github.com/Veritas-Calculus/vc-terraform-registry/internal/scheduler"
 	"github.com/Veritas-Calculus/vc-terraform-registry/pkg/config"
+	"github.com/gin-gonic/gin"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -23,6 +27,15 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Apply the configured Gin mode. Left unset, Gin defaults to debug mode,
+	// which dumps the full route table and request logs and warns on startup.
+	switch cfg.Server.Mode {
+	case "debug", "test":
+		gin.SetMode(cfg.Server.Mode)
+	default:
+		gin.SetMode(gin.ReleaseMode)
 	}
 
 	db, err := initDatabase(cfg)
@@ -56,13 +69,39 @@ func main() {
 		os.Exit(0)
 	}()
 
-	router := api.SetupRouter(db, jwtManager, cfg.Auth.Enabled, storagePath)
+	corsOrigins := parseCORSOrigins(cfg.CORS.AllowedOrigins)
+	router := api.SetupRouter(db, jwtManager, cfg.Auth.Enabled, storagePath, corsOrigins)
 
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
 	log.Printf("Starting server on %s", addr)
 	if err := router.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+}
+
+// generatePassword returns a URL-safe random password with at least nBytes of
+// entropy, suitable for the auto-provisioned admin account.
+func generatePassword(nBytes int) (string, error) {
+	buf := make([]byte, nBytes)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(buf), nil
+}
+
+// parseCORSOrigins splits the comma-separated CORS origins config into a
+// trimmed, non-empty slice. An empty or "*" value yields ["*"] (allow any).
+func parseCORSOrigins(raw string) []string {
+	var origins []string
+	for part := range strings.SplitSeq(raw, ",") {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			origins = append(origins, trimmed)
+		}
+	}
+	if len(origins) == 0 {
+		return []string{"*"}
+	}
+	return origins
 }
 
 func initDatabase(cfg *config.Config) (*gorm.DB, error) {
@@ -102,8 +141,15 @@ func initDatabase(cfg *config.Config) (*gorm.DB, error) {
 	db.Model(&models.User{}).Count(&userCount)
 	if userCount == 0 {
 		adminPassword := os.Getenv("ADMIN_PASSWORD")
+		generated := false
 		if adminPassword == "" {
-			adminPassword = "admin123"
+			// Never fall back to a well-known password. Generate a strong random
+			// one and surface it once in the logs so the operator can capture it.
+			adminPassword, err = generatePassword(24)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate admin password: %w", err)
+			}
+			generated = true
 		}
 		hashedPassword, err := auth.HashPassword(adminPassword)
 		if err != nil {
@@ -117,8 +163,15 @@ func initDatabase(cfg *config.Config) (*gorm.DB, error) {
 			}
 			if err := db.Create(&adminUser).Error; err != nil {
 				log.Printf("Warning: failed to create admin user: %v", err)
+			} else if generated {
+				log.Printf("=====================================================================")
+				log.Printf("  Initial admin account created. Username: admin")
+				log.Printf("  Generated password: %s", adminPassword)
+				log.Printf("  Store it now and change it after first login. It is shown only once.")
+				log.Printf("  Set ADMIN_PASSWORD to choose your own on first boot.")
+				log.Printf("=====================================================================")
 			} else {
-				log.Printf("Default admin user created (username: admin)")
+				log.Printf("Initial admin user created (username: admin) from ADMIN_PASSWORD")
 			}
 		}
 	}
