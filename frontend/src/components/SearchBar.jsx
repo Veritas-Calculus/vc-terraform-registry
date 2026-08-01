@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 
 function SearchBar({ placeholder = 'Search providers and modules...', initialQuery = '' }) {
   const [query, setQuery] = useState(initialQuery);
