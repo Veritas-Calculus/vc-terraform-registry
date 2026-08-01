@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 
 function Layout({ children }) {
@@ -40,9 +40,14 @@ function Layout({ children }) {
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex">
-              <Link to="/" className="flex items-center">
+              <Link to="/" className="flex items-center gap-2.5" aria-label="Veritas Registry home">
+                <svg className="h-7 w-7 text-blue-600" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+                  <path d="M11 35h20" stroke="currentColor" strokeWidth="4" strokeLinecap="round" opacity="0.32" />
+                  <path d="M11 41h13" stroke="currentColor" strokeWidth="4" strokeLinecap="round" opacity="0.32" />
+                  <path d="M8 20 L20 32 L41 7" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
                 <span className="text-xl font-semibold text-gray-900 tracking-tight">
-                  VC Terraform Registry
+                  Veritas <span className="text-blue-600">Registry</span>
                 </span>
               </Link>
               <div className="hidden sm:ml-10 sm:flex sm:space-x-8">
@@ -145,7 +150,7 @@ function Layout({ children }) {
         <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
             <p className="text-sm text-gray-500">
-              © 2026 VC Terraform Registry. All rights reserved.
+              © 2026 Veritas Registry. All rights reserved.
             </p>
             <div className="flex space-x-6">
               <a href="https://github.com/Veritas-Calculus/vc-terraform-registry" className="text-gray-400 hover:text-gray-500 transition-colors">

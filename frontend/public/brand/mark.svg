@@ -1,0 +1,7 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Veritas Registry">
+  <!-- Registry shelf: stacked artifact rows, decreasing width -->
+  <path d="M11 35h20" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.32"/>
+  <path d="M11 41h13" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.32"/>
+  <!-- Veritas check / V: verification mark -->
+  <path d="M8 20 L20 32 L41 7" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

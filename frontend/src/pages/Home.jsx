@@ -42,10 +42,10 @@ function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h1 className="text-5xl font-bold text-gray-900 mb-6">
-              Private Terraform Registry
+              Veritas Registry
             </h1>
             <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              Enterprise-grade provider and module management for your infrastructure as code
+              A private, self-hosted Terraform provider registry and mirror for internal and air-gapped networks
             </p>
             <SearchBar />
           </div>

@@ -1,7 +1,7 @@
 // Login page component
 
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
@@ -42,13 +42,15 @@ export default function Login() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 mb-4 shadow-lg">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#0F1B2D] mb-4 shadow-lg">
+            <svg className="w-9 h-9" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+              <path d="M11 35h20" stroke="#4C86FF" strokeWidth="4.5" strokeLinecap="round" opacity="0.42" />
+              <path d="M11 41h13" stroke="#4C86FF" strokeWidth="4.5" strokeLinecap="round" opacity="0.42" />
+              <path d="M8 20 L20 32 L41 7" stroke="#4C86FF" strokeWidth="6.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">
-            VC Terraform Registry
+            Veritas Registry
           </h1>
           <p className="text-gray-500 mt-2">
             Sign in to your account

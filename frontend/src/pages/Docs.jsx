@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 
 const sections = [
   {
@@ -169,7 +169,7 @@ function GettingStarted() {
       
       <SubSection title="Overview">
         <p className="text-gray-600 mb-4">
-          VC Terraform Registry is a private Terraform provider registry that allows you to host and manage 
+          Veritas Registry is a private Terraform provider registry that allows you to host and manage
           Terraform providers in your own infrastructure. It supports provider mirroring from the official 
           Terraform Registry, manual uploads, and offline deployments.
         </p>
