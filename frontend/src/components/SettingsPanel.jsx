@@ -26,7 +26,10 @@ export default function SettingsPanel({ onMessage }) {
     };
 
     loadSettings();
-  }, []);
+    // onMessage must be referentially stable (Mirror passes the useState setter
+    // setMessage). An inline arrow here would re-run this effect every render and
+    // hammer /api/v1/settings on the error path.
+  }, [onMessage]);
 
   // Resync the editable proxy form whenever a new settings object arrives.
   // This runs during render (not in an effect) so the form is populated in the
